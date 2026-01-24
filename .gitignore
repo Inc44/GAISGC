@@ -1,0 +1,7 @@
+.gradle
+bin
+build
+credentials.json
+gradle
+gradlew
+gradlew.bat
