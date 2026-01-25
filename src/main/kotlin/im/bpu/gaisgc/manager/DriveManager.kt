@@ -23,7 +23,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class Chat {
@@ -66,16 +65,22 @@ object DriveManager {
 	}
 
 	private suspend fun fetchMime(service: Drive, mime: String): List<DriveFile> {
-		val result =
-			withContext(Dispatchers.IO) {
-				service
-					.files()
-					.list()
-					.setQ("mimeType = '$mime' and trashed = false")
-					.setFields("files(id, name)")
-					.execute()
-			}
-		val files = result.files ?: emptyList()
+		val files = mutableListOf<DriveFile>()
+		var pageToken: String? = null
+		do {
+			val result =
+				withContext(Dispatchers.IO) {
+					service
+						.files()
+						.list()
+						.setQ("mimeType = '$mime' and trashed = false")
+						.setFields("nextPageToken, files(id, name)")
+						.setPageToken(pageToken)
+						.execute()
+				}
+			result.files?.let { files.addAll(it) }
+			pageToken = result.nextPageToken
+		} while (pageToken != null)
 		return files
 	}
 
@@ -92,30 +97,44 @@ object DriveManager {
 		return chat.chunkedPrompt?.chunks?.mapNotNull { it.driveDocument?.id } ?: emptyList()
 	}
 
-	private fun fetchPath(service: Drive, path: String): String? {
-		var result =
-			service
-				.files()
-				.list()
-				.setQ("name = '$path' and trashed = false")
-				.setFields("files(id, name)")
-				.execute()
-		val files = result.files ?: emptyList()
-		if (files.isNotEmpty()) return files[0].id
-		return null
-	}
+	private suspend fun fetchPath(service: Drive, path: String): String? =
+		withContext(Dispatchers.IO) {
+			val parts = path.split("/").filter { it.isNotEmpty() }
+			var parentId = "root"
+			for (part in parts) {
+				val result =
+					service
+						.files()
+						.list()
+						.setQ(
+							"mimeType = 'application/vnd.google-apps.folder' and name = '$part' and '$parentId' in parents and trashed = false"
+						)
+						.setFields("files(id)")
+						.execute()
+				val files = result.files ?: emptyList()
+				if (files.isEmpty()) return@withContext null
+				parentId = files[0].id
+			}
+			parentId
+		}
 
 	private suspend fun fetchId(service: Drive, id: String): List<DriveFile> {
-		val result =
-			withContext(Dispatchers.IO) {
-				service
-					.files()
-					.list()
-					.setQ("'$id' in parents and trashed = false")
-					.setFields("files(id, name)")
-					.execute()
-			}
-		val files = result.files ?: emptyList()
+		val files = mutableListOf<DriveFile>()
+		var pageToken: String? = null
+		do {
+			val result =
+				withContext(Dispatchers.IO) {
+					service
+						.files()
+						.list()
+						.setQ("'$id' in parents and trashed = false")
+						.setFields("nextPageToken, files(id, name)")
+						.setPageToken(pageToken)
+						.execute()
+				}
+			result.files?.let { files.addAll(it) }
+			pageToken = result.nextPageToken
+		} while (pageToken != null)
 		return files
 	}
 
@@ -134,29 +153,34 @@ object DriveManager {
 			}
 		val files = fetchMime(service, GAIS_MIME)
 		withContext(Dispatchers.Main) { files.forEach { State.items.add(Item(it.id, it.name)) } }
-		files.indices.forEach { i ->
-			launch(Dispatchers.IO) {
-				val file = files[i]
-				val baos = ByteArrayOutputStream()
-				service.files().get(file.id).executeMediaAndDownloadTo(baos)
-				val content = baos.toString("UTF-8")
-				val subItemIds = extractSubItemIds(content)
-				val subItems =
-					subItemIds
-						.map { id ->
-							async {
-								val name = fetchName(service, id)
-								if (name == null) Item(id, id, isNotFound = true)
-								else Item(id, name)
+		val deferreds =
+			files.indices.map { i ->
+				async(Dispatchers.IO) {
+					val file = files[i]
+					val baos = ByteArrayOutputStream()
+					service.files().get(file.id).executeMediaAndDownloadTo(baos)
+					val content = baos.toString("UTF-8")
+					val subItemIds = extractSubItemIds(content)
+					val subItems =
+						subItemIds
+							.map { id ->
+								async {
+									val name = fetchName(service, id)
+									if (name == null) Item(id, id, isNotFound = true)
+									else Item(id, name)
+								}
 							}
-						}
-						.awaitAll()
-				val item = Item(file.id, file.name, subItems)
-				withContext(Dispatchers.Main) { State.items[i] = item }
+							.awaitAll()
+					val item = Item(file.id, file.name, subItems)
+					withContext(Dispatchers.Main) { State.items[i] = item }
+					subItemIds
+				}
 			}
-		}
+		val chatIds = files.map { it.id }.toSet()
+		val driveDocumentIds = deferreds.awaitAll().flatten().toSet()
 		val gaisId = fetchPath(service, State.gaisPath) ?: return@coroutineScope
-		val unlinkedFiles = fetchId(service, gaisId)
+		var unlinkedFiles = fetchId(service, gaisId)
+		unlinkedFiles = unlinkedFiles.filter { it.id !in chatIds && it.id !in driveDocumentIds }
 		withContext(Dispatchers.Main) {
 			unlinkedFiles.forEach {
 				State.unlinkedItems.add(Item(it.id, it.name, isNotFound = true))
