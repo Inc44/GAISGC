@@ -18,6 +18,10 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStreamReader
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class Chat {
@@ -68,33 +72,44 @@ object DriveManager {
 		return chat.chunkedPrompt?.chunks?.mapNotNull { it.driveDocument?.id } ?: emptyList()
 	}
 
-	suspend fun fetch() =
-		withContext(Dispatchers.IO) {
-			val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
-			val service =
+	suspend fun fetch() = coroutineScope {
+		val httpTransport =
+			withContext(Dispatchers.IO) { GoogleNetHttpTransport.newTrustedTransport() }
+		val service =
+			withContext(Dispatchers.IO) {
 				Drive.Builder(httpTransport, JSON_FACTORY, getCredentials(httpTransport))
 					.setApplicationName(APPLICATION_NAME)
 					.build()
-			val result =
+			}
+		val result =
+			withContext(Dispatchers.IO) {
 				service
 					.files()
 					.list()
 					.setQ("mimeType = '$GAIS' and trashed = false")
 					.setFields("files(id, name)")
 					.execute()
-			val files = result.getFiles()
-			if (files == null || files.isEmpty()) {
-				println("No files found.")
-				return@withContext
 			}
-			for (file in files) {
+		val files = result.getFiles()
+		if (files == null || files.isEmpty()) {
+			println("No files found.")
+			return@coroutineScope
+		}
+		withContext(Dispatchers.Main) {
+			files.forEach { file -> State.items.add(Item(file.id, file.name)) }
+		}
+		files.indices.forEach { i ->
+			launch(Dispatchers.IO) {
+				val file = files[i]
 				val baos = ByteArrayOutputStream()
 				service.files().get(file.id).executeMediaAndDownloadTo(baos)
 				val content = baos.toString("UTF-8")
+				val subItemIds = extractSubItemIds(content)
 				val subItems =
-					extractSubItemIds(content).map { id -> Item(id, fetchName(service, id)) }
+					subItemIds.map { id -> async { Item(id, fetchName(service, id)) } }.awaitAll()
 				val item = Item(file.id, file.name, subItems)
-				withContext(Dispatchers.Main) { State.items.add(item) }
+				withContext(Dispatchers.Main) { State.items[i] = item }
 			}
 		}
+	}
 }
