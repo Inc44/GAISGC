@@ -54,6 +54,12 @@ gradle wrapper
 gradlew run
 ```
 
+Or
+
+```bash
+gradle run
+```
+
 ## 🧾 Configuration
 
 - Create `GAISGC` project in [Google Cloud console](https://console.cloud.google.com)

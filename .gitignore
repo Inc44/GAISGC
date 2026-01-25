@@ -1,7 +1,8 @@
 .gradle
-bin
+.kotlin
 build
 credentials.json
 gradle
 gradlew
 gradlew.bat
+tokens
