@@ -73,6 +73,7 @@ object DriveManager {
 	}
 
 	suspend fun fetch() = coroutineScope {
+		withContext(Dispatchers.Main) { State.items.clear() }
 		val httpTransport =
 			withContext(Dispatchers.IO) { GoogleNetHttpTransport.newTrustedTransport() }
 		val service =
