@@ -16,6 +16,7 @@ repositories {
 dependencies {
 	implementation(compose.desktop.currentOs)
 	implementation(compose.material3)
+	implementation(compose.materialIconsExtended)
 	implementation("com.google.api-client:google-api-client:2.8.1")
 	implementation("com.google.apis:google-api-services-drive:v3-rev20251210-2.0.0")
 	implementation("com.google.oauth-client:google-oauth-client-jetty:1.39.0")

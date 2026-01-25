@@ -13,6 +13,7 @@ import com.google.api.client.util.Key
 import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
+import com.google.api.services.drive.model.File as DriveFile
 import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.State
 import java.io.ByteArrayOutputStream
@@ -47,7 +48,7 @@ object DriveManager {
 	private const val TOKENS_DIRECTORY_PATH = "tokens"
 	private val SCOPES = listOf(DriveScopes.DRIVE_READONLY)
 	private const val CREDENTIALS_FILE_PATH = "credentials.json"
-	private const val GAIS = "application/vnd.google-makersuite.prompt"
+	private const val GAIS_MIME = "application/vnd.google-makersuite.prompt"
 
 	private fun getCredentials(httpTransport: HttpTransport): Credential {
 		val file = File(CREDENTIALS_FILE_PATH)
@@ -64,6 +65,20 @@ object DriveManager {
 		return credential
 	}
 
+	private suspend fun fetchMime(service: Drive, mime: String): List<DriveFile> {
+		val result =
+			withContext(Dispatchers.IO) {
+				service
+					.files()
+					.list()
+					.setQ("mimeType = '$mime' and trashed = false")
+					.setFields("files(id, name)")
+					.execute()
+			}
+		val files = result.files ?: emptyList()
+		return files
+	}
+
 	private fun fetchName(service: Drive, id: String): String? {
 		return try {
 			service.files().get(id).setFields("name").execute().name
@@ -77,8 +92,38 @@ object DriveManager {
 		return chat.chunkedPrompt?.chunks?.mapNotNull { it.driveDocument?.id } ?: emptyList()
 	}
 
+	private fun fetchPath(service: Drive, path: String): String? {
+		var result =
+			service
+				.files()
+				.list()
+				.setQ("name = '$path' and trashed = false")
+				.setFields("files(id, name)")
+				.execute()
+		val files = result.files ?: emptyList()
+		if (files.isNotEmpty()) return files[0].id
+		return null
+	}
+
+	private suspend fun fetchId(service: Drive, id: String): List<DriveFile> {
+		val result =
+			withContext(Dispatchers.IO) {
+				service
+					.files()
+					.list()
+					.setQ("'$id' in parents and trashed = false")
+					.setFields("files(id, name)")
+					.execute()
+			}
+		val files = result.files ?: emptyList()
+		return files
+	}
+
 	suspend fun fetch() = coroutineScope {
-		withContext(Dispatchers.Main) { State.items.clear() }
+		withContext(Dispatchers.Main) {
+			State.items.clear()
+			State.unlinkedItems.clear()
+		}
 		val httpTransport =
 			withContext(Dispatchers.IO) { GoogleNetHttpTransport.newTrustedTransport() }
 		val service =
@@ -87,19 +132,8 @@ object DriveManager {
 					.setApplicationName(APPLICATION_NAME)
 					.build()
 			}
-		val result =
-			withContext(Dispatchers.IO) {
-				service
-					.files()
-					.list()
-					.setQ("mimeType = '$GAIS' and trashed = false")
-					.setFields("files(id, name)")
-					.execute()
-			}
-		val files = result.files ?: emptyList()
-		withContext(Dispatchers.Main) {
-			files.forEach { file -> State.items.add(Item(file.id, file.name)) }
-		}
+		val files = fetchMime(service, GAIS_MIME)
+		withContext(Dispatchers.Main) { files.forEach { State.items.add(Item(it.id, it.name)) } }
 		files.indices.forEach { i ->
 			launch(Dispatchers.IO) {
 				val file = files[i]
@@ -119,6 +153,13 @@ object DriveManager {
 						.awaitAll()
 				val item = Item(file.id, file.name, subItems)
 				withContext(Dispatchers.Main) { State.items[i] = item }
+			}
+		}
+		val gaisId = fetchPath(service, State.gaisPath) ?: return@coroutineScope
+		val unlinkedFiles = fetchId(service, gaisId)
+		withContext(Dispatchers.Main) {
+			unlinkedFiles.forEach {
+				State.unlinkedItems.add(Item(it.id, it.name, isNotFound = true))
 			}
 		}
 	}

@@ -1,3 +1,4 @@
+*.properties
 .gradle
 .kotlin
 build
