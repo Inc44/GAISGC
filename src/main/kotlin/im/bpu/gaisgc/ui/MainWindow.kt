@@ -1,5 +1,7 @@
 package im.bpu.gaisgc.ui
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,6 +49,9 @@ fun ApplicationLayout() {
 					modifier = Modifier.weight(1f),
 					onRefresh = { scope.launch { DriveManager.fetch() } },
 				)
+				if (State.selectedImage != null) {
+					PreviewPane(modifier = Modifier.width(560.dp))
+				}
 			}
 		}
 	}
@@ -79,6 +84,19 @@ private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit) {
 				Screen.MAIN -> ChatList()
 				Screen.UNLINKED -> UnlinkedList()
 			}
+		}
+	}
+}
+
+@Composable
+private fun PreviewPane(modifier: Modifier) {
+	Column(modifier = modifier.fillMaxHeight().padding(16.dp)) {
+		State.selectedImage?.let {
+			Image(
+				bitmap = it,
+				contentDescription = "Preview pane",
+				modifier = Modifier.fillMaxSize(),
+			)
 		}
 	}
 }
@@ -124,17 +142,29 @@ private fun ChatList() {
 
 @Composable
 private fun UnlinkedList() {
+	val scope = rememberCoroutineScope()
 	LazyColumn(modifier = Modifier.padding(16.dp)) {
-		items(State.unlinkedItems) { item -> ItemRow(item) }
+		items(State.unlinkedItems) { item ->
+			ItemRow(
+				item = item,
+				onClick = {
+					scope.launch { State.selectedImage = DriveManager.getImageById(item.id) }
+				},
+			)
+		}
 	}
 }
 
 @Composable
-private fun ItemRow(item: Item, depth: Int = 0) {
+private fun ItemRow(item: Item, depth: Int = 0, onClick: (() -> Unit)? = null) {
 	val color =
 		if (item.isNotFound) MaterialTheme.colorScheme.error
 		else MaterialTheme.colorScheme.onSurface
-	Column(modifier = Modifier.padding(start = (depth * 16).dp, top = 4.dp, bottom = 4.dp)) {
+	val modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+	Column(
+		modifier =
+			modifier.padding(start = (depth * 16).dp, top = 4.dp, bottom = 4.dp).then(modifier)
+	) {
 		Text(text = item.name, style = MaterialTheme.typography.bodyMedium, color = color)
 		item.subItems.forEach { subItem -> ItemRow(subItem, depth + 1) }
 	}

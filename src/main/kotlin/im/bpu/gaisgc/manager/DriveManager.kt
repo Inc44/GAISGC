@@ -1,5 +1,7 @@
 package im.bpu.gaisgc.manager
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.google.api.client.auth.oauth2.Credential
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
@@ -24,6 +26,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import org.jetbrains.skia.Image
 
 class Chat {
 	@Key("chunkedPrompt") var chunkedPrompt: ChunkedPrompt? = null
@@ -51,6 +54,7 @@ object DriveManager {
 	private const val PORT = 8888
 	private val JSON_FACTORY = GsonFactory.getDefaultInstance()
 	private val SCOPES = listOf(DriveScopes.DRIVE_READONLY)
+	private var driveService: Drive? = null
 
 	private fun getCredentials(httpTransport: HttpTransport): Credential {
 		val file = File(CREDENTIALS_FILE_PATH)
@@ -65,6 +69,21 @@ object DriveManager {
 		val receiver = LocalServerReceiver.Builder().setPort(PORT).build()
 		val credential = AuthorizationCodeInstalledApp(flow, receiver).authorize(USER_ID)
 		return credential
+	}
+
+	private suspend fun getService(): Drive {
+		return withContext(Dispatchers.IO) {
+			driveService?.let {
+				return@withContext it
+			}
+			val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
+			val service =
+				Drive.Builder(httpTransport, JSON_FACTORY, getCredentials(httpTransport))
+					.setApplicationName(APPLICATION_NAME)
+					.build()
+			driveService = service
+			service
+		}
 	}
 
 	private suspend fun getFilesByMime(service: Drive, mime: String): List<DriveFile> {
@@ -145,15 +164,9 @@ object DriveManager {
 		withContext(Dispatchers.Main) {
 			State.items.clear()
 			State.unlinkedItems.clear()
+			State.selectedImage = null
 		}
-		val httpTransport =
-			withContext(Dispatchers.IO) { GoogleNetHttpTransport.newTrustedTransport() }
-		val service =
-			withContext(Dispatchers.IO) {
-				Drive.Builder(httpTransport, JSON_FACTORY, getCredentials(httpTransport))
-					.setApplicationName(APPLICATION_NAME)
-					.build()
-			}
+		val service = getService()
 		val chatFiles = getFilesByMime(service, MIME_PROMPT)
 		withContext(Dispatchers.Main) {
 			chatFiles.forEach { State.items.add(Item(it.id, it.name)) }
@@ -190,4 +203,17 @@ object DriveManager {
 			orphanFiles.forEach { State.unlinkedItems.add(Item(it.id, it.name, isNotFound = true)) }
 		}
 	}
+
+	suspend fun getImageById(id: String): ImageBitmap? =
+		withContext(Dispatchers.IO) {
+			try {
+				val service = getService()
+				val baos = ByteArrayOutputStream()
+				service.files().get(id).executeMediaAndDownloadTo(baos)
+				val bytes = baos.toByteArray()
+				Image.makeFromEncoded(bytes).toComposeImageBitmap()
+			} catch (exception: Exception) {
+				null
+			}
+		}
 }

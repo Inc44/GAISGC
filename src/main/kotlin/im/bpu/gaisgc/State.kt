@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
 import java.io.File
 import java.util.Properties
 
@@ -29,6 +30,7 @@ object State {
 	var gaisPath by mutableStateOf(DEFAULT_GAIS_PATH)
 	val items = mutableStateListOf<Item>()
 	val unlinkedItems = mutableStateListOf<Item>()
+	var selectedImage by mutableStateOf<ImageBitmap?>(null)
 
 	init {
 		if (configFile.exists()) {
