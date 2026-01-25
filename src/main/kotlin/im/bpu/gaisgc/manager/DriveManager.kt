@@ -6,6 +6,7 @@ import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.client.http.HttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.Key
@@ -63,8 +64,12 @@ object DriveManager {
 		return credential
 	}
 
-	private fun fetchName(service: Drive, id: String): String {
-		return service.files().get(id).setFields("name").execute().name
+	private fun fetchName(service: Drive, id: String): String? {
+		return try {
+			service.files().get(id).setFields("name").execute().name
+		} catch (exception: GoogleJsonResponseException) {
+			if (exception.statusCode == 404) null else throw exception
+		}
 	}
 
 	private fun extractSubItemIds(json: String): List<String> {
@@ -91,11 +96,7 @@ object DriveManager {
 					.setFields("files(id, name)")
 					.execute()
 			}
-		val files = result.getFiles()
-		if (files == null || files.isEmpty()) {
-			println("No files found.")
-			return@coroutineScope
-		}
+		val files = result.files ?: emptyList()
 		withContext(Dispatchers.Main) {
 			files.forEach { file -> State.items.add(Item(file.id, file.name)) }
 		}
@@ -107,7 +108,15 @@ object DriveManager {
 				val content = baos.toString("UTF-8")
 				val subItemIds = extractSubItemIds(content)
 				val subItems =
-					subItemIds.map { id -> async { Item(id, fetchName(service, id)) } }.awaitAll()
+					subItemIds
+						.map { id ->
+							async {
+								val name = fetchName(service, id)
+								if (name == null) Item(id, id, isNotFound = true)
+								else Item(id, name)
+							}
+						}
+						.awaitAll()
 				val item = Item(file.id, file.name, subItems)
 				withContext(Dispatchers.Main) { State.items[i] = item }
 			}
