@@ -13,11 +13,30 @@ data class Item(
 	val name: String,
 	val subItems: List<Item> = emptyList(),
 	val isNotFound: Boolean = false,
+	val createdTime: Long = 0L,
+	val mimeType: String = "",
 )
 
 enum class Screen {
 	MAIN,
 	UNLINKED,
+}
+
+enum class FilterMimeType {
+	ALL,
+	DOCUMENT,
+	PHOTO,
+	PDF,
+	VIDEO,
+	AUDIO,
+	OTHER,
+}
+
+enum class Sort {
+	DATE_DESC,
+	DATE_ASC,
+	NAME_ASC,
+	NAME_DESC,
 }
 
 object State {
@@ -31,6 +50,9 @@ object State {
 	val items = mutableStateListOf<Item>()
 	val unlinkedItems = mutableStateListOf<Item>()
 	var selectedImage by mutableStateOf<ImageBitmap?>(null)
+	var filterName by mutableStateOf("")
+	var filterMimeType by mutableStateOf(FilterMimeType.ALL)
+	var sort by mutableStateOf(Sort.DATE_DESC)
 
 	init {
 		if (configFile.exists()) {

@@ -150,7 +150,7 @@ object DriveManager {
 						.files()
 						.list()
 						.setQ("'$parentId' in parents and trashed = false")
-						.setFields("nextPageToken, files(id, name)")
+						.setFields("nextPageToken, files(id, name, createdTime, mimeType)")
 						.setPageToken(pageToken)
 						.execute()
 				}
@@ -200,7 +200,17 @@ object DriveManager {
 		val gaisFiles = getFilesByParent(service, gaisId)
 		val orphanFiles = gaisFiles.filter { it.id !in chatIds && it.id !in driveDocumentIds }
 		withContext(Dispatchers.Main) {
-			orphanFiles.forEach { State.unlinkedItems.add(Item(it.id, it.name, isNotFound = true)) }
+			orphanFiles.forEach {
+				State.unlinkedItems.add(
+					Item(
+						id = it.id,
+						name = it.name,
+						createdTime = it.createdTime?.value ?: 0L,
+						mimeType = it.mimeType ?: "",
+						isNotFound = true,
+					)
+				)
+			}
 		}
 	}
 

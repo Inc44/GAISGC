@@ -2,21 +2,26 @@ package im.bpu.gaisgc.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
@@ -25,13 +30,19 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import im.bpu.gaisgc.FilterMimeType
 import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.Screen
+import im.bpu.gaisgc.Sort
 import im.bpu.gaisgc.State
 import im.bpu.gaisgc.manager.DriveManager
 import kotlinx.coroutines.launch
@@ -40,7 +51,6 @@ import kotlinx.coroutines.launch
 fun ApplicationLayout() {
 	val scope = rememberCoroutineScope()
 	LaunchedEffect(Unit) { DriveManager.fetch() }
-
 	MaterialTheme {
 		Scaffold { padding ->
 			Row(modifier = Modifier.padding(padding).fillMaxSize()) {
@@ -77,8 +87,12 @@ private fun NavigationSideBar() {
 
 @Composable
 private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit) {
+	var showFilters by remember { mutableStateOf(false) }
 	Column(modifier = modifier) {
-		Header(onRefresh)
+		Header(onRefresh = onRefresh, onToggleFilters = { showFilters = !showFilters })
+		if (State.screen == Screen.UNLINKED && showFilters) {
+			FilterPanel()
+		}
 		Box(modifier = Modifier.weight(1f)) {
 			when (State.screen) {
 				Screen.MAIN -> ChatList()
@@ -102,15 +116,56 @@ private fun PreviewPane(modifier: Modifier) {
 }
 
 @Composable
-private fun Header(onRefresh: () -> Unit) {
+private fun Header(onRefresh: () -> Unit, onToggleFilters: () -> Unit) {
 	Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
 		if (State.screen == Screen.UNLINKED) {
 			PathInput(modifier = Modifier.weight(1f))
+			Spacer(Modifier.width(16.dp))
+			IconButton(onClick = onToggleFilters) {
+				Icon(Icons.Filled.FilterList, contentDescription = "Filters")
+			}
 			Spacer(Modifier.width(16.dp))
 		} else {
 			Title(modifier = Modifier.weight(1f))
 		}
 		Button(onClick = onRefresh) { Text("Refresh") }
+	}
+}
+
+@Composable
+private fun FilterPanel() {
+	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+		OutlinedTextField(
+			value = State.filterName,
+			onValueChange = { State.filterName = it },
+			label = { Text("Filter by Name") },
+			modifier = Modifier.fillMaxWidth(),
+			singleLine = true,
+		)
+		Row(
+			horizontalArrangement = Arrangement.spacedBy(8.dp),
+			modifier = Modifier.padding(top = 8.dp),
+		) {
+			FilterMimeType.entries.forEach { type ->
+				FilterChip(
+					selected = State.filterMimeType == type,
+					onClick = { State.filterMimeType = type },
+					label = { Text(type.name) },
+				)
+			}
+		}
+		Row(
+			horizontalArrangement = Arrangement.spacedBy(8.dp),
+			modifier = Modifier.padding(top = 8.dp),
+		) {
+			Sort.entries.forEach { option ->
+				FilterChip(
+					selected = State.sort == option,
+					onClick = { State.sort = option },
+					label = { Text(option.name.replace("_", " ")) },
+				)
+			}
+		}
 	}
 }
 
@@ -143,8 +198,49 @@ private fun ChatList() {
 @Composable
 private fun UnlinkedList() {
 	val scope = rememberCoroutineScope()
+	val filteredItems =
+		State.unlinkedItems
+			.filter { it.name.contains(State.filterName, ignoreCase = true) }
+			.filter {
+				val mimeType = it.mimeType.lowercase()
+				when (State.filterMimeType) {
+					FilterMimeType.ALL -> true
+					FilterMimeType.DOCUMENT ->
+						mimeType.startsWith("text/") ||
+							mimeType.contains("document") ||
+							mimeType.contains("sheet") ||
+							mimeType.contains("presentation") ||
+							mimeType.contains("word") ||
+							mimeType.contains("excel") ||
+							mimeType.contains("powerpoint")
+					FilterMimeType.PHOTO -> mimeType.startsWith("image/")
+					FilterMimeType.PDF -> mimeType == "application/pdf"
+					FilterMimeType.VIDEO -> mimeType.startsWith("video/")
+					FilterMimeType.AUDIO -> mimeType.startsWith("audio/")
+					FilterMimeType.OTHER ->
+						mimeType.startsWith("text/") ||
+							mimeType.contains("document") ||
+							mimeType.contains("sheet") ||
+							mimeType.contains("presentation") ||
+							mimeType.contains("word") ||
+							mimeType.contains("excel") ||
+							mimeType.contains("powerpoint") ||
+							mimeType.startsWith("image/") ||
+							mimeType == "application/pdf" ||
+							mimeType.startsWith("video/") ||
+							mimeType.startsWith("audio/")
+				}
+			}
+			.sortedWith { item, nextItem ->
+				when (State.sort) {
+					Sort.DATE_DESC -> nextItem.createdTime.compareTo(item.createdTime)
+					Sort.DATE_ASC -> item.createdTime.compareTo(nextItem.createdTime)
+					Sort.NAME_ASC -> item.name.compareTo(nextItem.name, ignoreCase = true)
+					Sort.NAME_DESC -> nextItem.name.compareTo(item.name, ignoreCase = true)
+				}
+			}
 	LazyColumn(modifier = Modifier.padding(16.dp)) {
-		items(State.unlinkedItems) { item ->
+		items(filteredItems) { item ->
 			ItemRow(
 				item = item,
 				onClick = {
