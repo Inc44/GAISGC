@@ -8,31 +8,49 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.http.HttpTransport
 import com.google.api.client.json.gson.GsonFactory
+import com.google.api.client.util.Key
 import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.State
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStreamReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+class Chat {
+	@Key("chunkedPrompt") var chunkedPrompt: ChunkedPrompt? = null
+}
+
+class ChunkedPrompt {
+	@Key("chunks") var chunks: List<Chunk>? = null
+}
+
+class Chunk {
+	@Key("driveDocument") var driveDocument: DriveDocument? = null
+}
+
+class DriveDocument {
+	@Key("id") var id: String? = null
+}
+
 object DriveManager {
 	private const val APPLICATION_NAME = "GAISGC"
 	private val JSON_FACTORY = GsonFactory.getDefaultInstance()
 	private const val TOKENS_DIRECTORY_PATH = "tokens"
-	private val SCOPES = listOf(DriveScopes.DRIVE_METADATA_READONLY)
+	private val SCOPES = listOf(DriveScopes.DRIVE_READONLY)
 	private const val CREDENTIALS_FILE_PATH = "credentials.json"
 	private const val GAIS = "application/vnd.google-makersuite.prompt"
 
-	private fun getCredentials(HTTP_TRANSPORT: HttpTransport): Credential {
+	private fun getCredentials(httpTransport: HttpTransport): Credential {
 		val file = File(CREDENTIALS_FILE_PATH)
 		if (!file.exists()) throw Exception("Resource not found: $CREDENTIALS_FILE_PATH")
 		val clientSecrets =
 			GoogleClientSecrets.load(JSON_FACTORY, InputStreamReader(file.inputStream()))
 		val flow =
-			GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
+			GoogleAuthorizationCodeFlow.Builder(httpTransport, JSON_FACTORY, clientSecrets, SCOPES)
 				.setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))
 				.setAccessType("offline")
 				.build()
@@ -41,11 +59,20 @@ object DriveManager {
 		return credential
 	}
 
+	private fun fetchName(service: Drive, id: String): String {
+		return service.files().get(id).setFields("name").execute().name
+	}
+
+	private fun extractSubItemIds(json: String): List<String> {
+		val chat = JSON_FACTORY.fromString(json, Chat::class.java)
+		return chat.chunkedPrompt?.chunks?.mapNotNull { it.driveDocument?.id } ?: emptyList()
+	}
+
 	suspend fun fetch() =
 		withContext(Dispatchers.IO) {
-			val HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport()
+			val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
 			val service =
-				Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
+				Drive.Builder(httpTransport, JSON_FACTORY, getCredentials(httpTransport))
 					.setApplicationName(APPLICATION_NAME)
 					.build()
 			val result =
@@ -53,16 +80,21 @@ object DriveManager {
 					.files()
 					.list()
 					.setQ("mimeType = '$GAIS' and trashed = false")
-					.setFields("nextPageToken, files(id, name)")
+					.setFields("files(id, name)")
 					.execute()
 			val files = result.getFiles()
 			if (files == null || files.isEmpty()) {
 				println("No files found.")
 				return@withContext
 			}
-			withContext(Dispatchers.Main) {
-				State.items.clear()
-				State.items.addAll(files.map { Item(it.id, it.name) })
+			for (file in files) {
+				val baos = ByteArrayOutputStream()
+				service.files().get(file.id).executeMediaAndDownloadTo(baos)
+				val content = baos.toString("UTF-8")
+				val subItems =
+					extractSubItemIds(content).map { id -> Item(id, fetchName(service, id)) }
+				val item = Item(file.id, file.name, subItems)
+				withContext(Dispatchers.Main) { State.items.add(item) }
 			}
 		}
 }
