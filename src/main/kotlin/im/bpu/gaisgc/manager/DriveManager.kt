@@ -43,11 +43,14 @@ class DriveDocument {
 
 object DriveManager {
 	private const val APPLICATION_NAME = "GAISGC"
-	private val JSON_FACTORY = GsonFactory.getDefaultInstance()
 	private const val TOKENS_DIRECTORY_PATH = "tokens"
-	private val SCOPES = listOf(DriveScopes.DRIVE_READONLY)
 	private const val CREDENTIALS_FILE_PATH = "credentials.json"
-	private const val GAIS_MIME = "application/vnd.google-makersuite.prompt"
+	private const val MIME_PROMPT = "application/vnd.google-makersuite.prompt"
+	private const val MIME_FOLDER = "application/vnd.google-apps.folder"
+	private const val USER_ID = "user"
+	private const val PORT = 8888
+	private val JSON_FACTORY = GsonFactory.getDefaultInstance()
+	private val SCOPES = listOf(DriveScopes.DRIVE_READONLY)
 
 	private fun getCredentials(httpTransport: HttpTransport): Credential {
 		val file = File(CREDENTIALS_FILE_PATH)
@@ -59,12 +62,12 @@ object DriveManager {
 				.setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))
 				.setAccessType("offline")
 				.build()
-		val receiver = LocalServerReceiver.Builder().setPort(8888).build()
-		val credential = AuthorizationCodeInstalledApp(flow, receiver).authorize("user")
+		val receiver = LocalServerReceiver.Builder().setPort(PORT).build()
+		val credential = AuthorizationCodeInstalledApp(flow, receiver).authorize(USER_ID)
 		return credential
 	}
 
-	private suspend fun fetchMime(service: Drive, mime: String): List<DriveFile> {
+	private suspend fun getFilesByMime(service: Drive, mime: String): List<DriveFile> {
 		val files = mutableListOf<DriveFile>()
 		var pageToken: String? = null
 		do {
@@ -84,9 +87,9 @@ object DriveManager {
 		return files
 	}
 
-	private fun fetchName(service: Drive, id: String): String? {
+	private fun getFileName(service: Drive, fileId: String): String? {
 		return try {
-			service.files().get(id).setFields("name").execute().name
+			service.files().get(fileId).setFields("name").execute().name
 		} catch (exception: GoogleJsonResponseException) {
 			if (exception.statusCode == 404) null else throw exception
 		}
@@ -97,7 +100,7 @@ object DriveManager {
 		return chat.chunkedPrompt?.chunks?.mapNotNull { it.driveDocument?.id } ?: emptyList()
 	}
 
-	private suspend fun fetchPath(service: Drive, path: String): String? =
+	private suspend fun getFolderId(service: Drive, path: String): String? =
 		withContext(Dispatchers.IO) {
 			val parts = path.split("/").filter { it.isNotEmpty() }
 			var parentId = "root"
@@ -107,7 +110,7 @@ object DriveManager {
 						.files()
 						.list()
 						.setQ(
-							"mimeType = 'application/vnd.google-apps.folder' and name = '$part' and '$parentId' in parents and trashed = false"
+							"mimeType = '$MIME_FOLDER' and name = '$part' and '$parentId' in parents and trashed = false"
 						)
 						.setFields("files(id)")
 						.execute()
@@ -118,7 +121,7 @@ object DriveManager {
 			parentId
 		}
 
-	private suspend fun fetchId(service: Drive, id: String): List<DriveFile> {
+	private suspend fun getFilesByParent(service: Drive, parentId: String): List<DriveFile> {
 		val files = mutableListOf<DriveFile>()
 		var pageToken: String? = null
 		do {
@@ -127,7 +130,7 @@ object DriveManager {
 					service
 						.files()
 						.list()
-						.setQ("'$id' in parents and trashed = false")
+						.setQ("'$parentId' in parents and trashed = false")
 						.setFields("nextPageToken, files(id, name)")
 						.setPageToken(pageToken)
 						.execute()
@@ -151,12 +154,14 @@ object DriveManager {
 					.setApplicationName(APPLICATION_NAME)
 					.build()
 			}
-		val files = fetchMime(service, GAIS_MIME)
-		withContext(Dispatchers.Main) { files.forEach { State.items.add(Item(it.id, it.name)) } }
+		val chatFiles = getFilesByMime(service, MIME_PROMPT)
+		withContext(Dispatchers.Main) {
+			chatFiles.forEach { State.items.add(Item(it.id, it.name)) }
+		}
 		val deferreds =
-			files.indices.map { i ->
+			chatFiles.indices.map { i ->
 				async(Dispatchers.IO) {
-					val file = files[i]
+					val file = chatFiles[i]
 					val baos = ByteArrayOutputStream()
 					service.files().get(file.id).executeMediaAndDownloadTo(baos)
 					val content = baos.toString("UTF-8")
@@ -165,7 +170,7 @@ object DriveManager {
 						subItemIds
 							.map { id ->
 								async {
-									val name = fetchName(service, id)
+									val name = getFileName(service, id)
 									if (name == null) Item(id, id, isNotFound = true)
 									else Item(id, name)
 								}
@@ -176,15 +181,13 @@ object DriveManager {
 					subItemIds
 				}
 			}
-		val chatIds = files.map { it.id }.toSet()
+		val chatIds = chatFiles.map { it.id }.toSet()
 		val driveDocumentIds = deferreds.awaitAll().flatten().toSet()
-		val gaisId = fetchPath(service, State.gaisPath) ?: return@coroutineScope
-		var unlinkedFiles = fetchId(service, gaisId)
-		unlinkedFiles = unlinkedFiles.filter { it.id !in chatIds && it.id !in driveDocumentIds }
+		val gaisId = getFolderId(service, State.gaisPath) ?: return@coroutineScope
+		val gaisFiles = getFilesByParent(service, gaisId)
+		val orphanFiles = gaisFiles.filter { it.id !in chatIds && it.id !in driveDocumentIds }
 		withContext(Dispatchers.Main) {
-			unlinkedFiles.forEach {
-				State.unlinkedItems.add(Item(it.id, it.name, isNotFound = true))
-			}
+			orphanFiles.forEach { State.unlinkedItems.add(Item(it.id, it.name, isNotFound = true)) }
 		}
 	}
 }
