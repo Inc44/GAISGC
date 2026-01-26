@@ -37,10 +37,12 @@ class ChunkedPrompt {
 }
 
 class Chunk {
-	@Key("driveDocument") var driveDocument: DriveDocument? = null
+	@Key("driveDocument") var driveDocument: DriveReference? = null
+	@Key("driveImage") var driveImage: DriveReference? = null
+	@Key("driveVideo") var driveVideo: DriveReference? = null
 }
 
-class DriveDocument {
+class DriveReference {
 	@Key("id") var id: String? = null
 }
 
@@ -116,7 +118,8 @@ object DriveManager {
 
 	private fun extractSubItemIds(json: String): List<String> {
 		val chat = JSON_FACTORY.fromString(json, Chat::class.java)
-		return chat.chunkedPrompt?.chunks?.mapNotNull { it.driveDocument?.id } ?: emptyList()
+		return chat.chunkedPrompt?.chunks?.mapNotNull { it.driveDocument?.id ?: it.driveImage?.id ?: it.driveVideo?.id }
+			?: emptyList()
 	}
 
 	private suspend fun getFolderId(service: Drive, path: String): String? =
