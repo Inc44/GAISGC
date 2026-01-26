@@ -54,6 +54,9 @@ object State {
 	var filterMimeType by mutableStateOf(FilterMimeType.ALL)
 	var sort by mutableStateOf(Sort.DATE_DESC)
 	val selectedIds = mutableStateListOf<String>()
+	var isShiftPressed by mutableStateOf(false)
+	var lastSelectedId by mutableStateOf<String?>(null)
+	val shiftRangeIds = mutableListOf<String>()
 
 	init {
 		if (configFile.exists()) {
