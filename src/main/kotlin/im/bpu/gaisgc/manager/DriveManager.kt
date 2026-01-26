@@ -249,6 +249,9 @@ object DriveManager {
 			withContext(Dispatchers.Main) {
 				State.unlinkedItems.removeIf { it.id in ids }
 				State.selectedIds.removeAll(ids)
+				if (State.lastSelectedId in ids) {
+					State.lastSelectedId = null
+				}
 			}
 		}
 }

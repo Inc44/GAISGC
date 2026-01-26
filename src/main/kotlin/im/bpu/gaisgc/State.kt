@@ -145,15 +145,16 @@ object State {
 	}
 
 	private fun selectRange(startId: String, endId: String, ids: List<String>) {
-		val lastIndex = ids.indexOf(startId)
-		val currentIndex = ids.indexOf(endId)
-		if (lastIndex == -1 || currentIndex == -1) return
-		val startIndex = min(lastIndex, currentIndex)
-		val endIndex = max(lastIndex, currentIndex)
-		val rangeIds = (startIndex..endIndex).map { ids[it] }
-		val deselectedIds = shiftRangeIds - rangeIds.toSet()
-		selectedIds.removeAll(deselectedIds)
-		selectedIds.addAll(rangeIds)
+		val startIndex = ids.indexOf(startId)
+		val endIndex = ids.indexOf(endId)
+		if (startIndex == -1 || endIndex == -1) return
+		val rangeStart = min(startIndex, endIndex)
+		val rangeEnd = max(startIndex, endIndex)
+		val rangeIds = (rangeStart..rangeEnd).map { ids[it] }.toSet()
+		val idsToRemove = shiftRangeIds.filter { it !in rangeIds }
+		selectedIds.removeAll(idsToRemove)
+		val idsToAdd = rangeIds.filter { it !in selectedIds }
+		selectedIds.addAll(idsToAdd)
 		shiftRangeIds.clear()
 		shiftRangeIds.addAll(rangeIds)
 	}
@@ -161,9 +162,10 @@ object State {
 	fun selectAll(ids: List<String>) {
 		val allSelected = ids.all { it in selectedIds }
 		if (allSelected) {
-			selectedIds.clear()
+			selectedIds.removeAll(ids)
 		} else {
-			ids.forEach { if (it !in selectedIds) selectedIds.add(it) }
+			val idsToAdd = ids.filter { it !in selectedIds }
+			selectedIds.addAll(idsToAdd)
 		}
 	}
 
