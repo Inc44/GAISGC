@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
@@ -55,8 +56,6 @@ import im.bpu.gaisgc.Screen
 import im.bpu.gaisgc.Sort
 import im.bpu.gaisgc.State
 import im.bpu.gaisgc.manager.DriveManager
-import kotlin.math.max
-import kotlin.math.min
 import kotlinx.coroutines.launch
 
 @Composable
@@ -64,34 +63,7 @@ fun ApplicationLayout() {
 	val scope = rememberCoroutineScope()
 	LaunchedEffect(Unit) { DriveManager.fetch() }
 	MaterialTheme {
-		Scaffold(
-			modifier =
-				Modifier.onPreviewKeyEvent { event ->
-					if (event.key == Key.ShiftLeft || event.key == Key.ShiftRight) {
-						State.isShiftPressed = event.type == KeyEventType.KeyDown
-						false
-					} else if (
-						event.type == KeyEventType.KeyDown &&
-							event.isCtrlPressed &&
-							event.key == Key.A &&
-							State.screen == Screen.UNLINKED
-					) {
-						val filteredUnlinkedItems = State.getFilteredUnlinkedItems()
-						val allSelectedIds =
-							filteredUnlinkedItems.all { it.id in State.selectedIds }
-						if (allSelectedIds) {
-							State.selectedIds.clear()
-						} else {
-							filteredUnlinkedItems.forEach {
-								if (it.id !in State.selectedIds) State.selectedIds.add(it.id)
-							}
-						}
-						true
-					} else {
-						false
-					}
-				}
-		) { padding ->
+		Scaffold(modifier = Modifier.onPreviewKeyEvent { handleKeyEvent(it) }) { padding ->
 			Row(modifier = Modifier.padding(padding).fillMaxSize()) {
 				NavigationSideBar()
 				ContentArea(
@@ -107,6 +79,23 @@ fun ApplicationLayout() {
 	}
 }
 
+private fun handleKeyEvent(event: KeyEvent): Boolean {
+	if (event.key == Key.ShiftLeft || event.key == Key.ShiftRight) {
+		State.isShiftPressed = event.type == KeyEventType.KeyDown
+		return false
+	}
+	if (
+		event.type == KeyEventType.KeyDown &&
+			event.isCtrlPressed &&
+			event.key == Key.A &&
+			State.screen == Screen.UNLINKED
+	) {
+		State.selectAll(State.getFilteredUnlinkedItems().map { it.id })
+		return true
+	}
+	return false
+}
+
 @Composable
 private fun NavigationSideBar() {
 	NavigationRail(modifier = Modifier.width(80.dp).fillMaxHeight()) {
@@ -114,9 +103,7 @@ private fun NavigationSideBar() {
 			selected = State.screen == Screen.MAIN,
 			onClick = {
 				State.screen = Screen.MAIN
-				State.selectedIds.clear()
-				State.lastSelectedId = null
-				State.shiftRangeIds.clear()
+				State.clearSelection()
 			},
 			icon = { Icon(Icons.Filled.ChatBubble, contentDescription = null) },
 			label = { Text("Chats") },
@@ -125,9 +112,7 @@ private fun NavigationSideBar() {
 			selected = State.screen == Screen.UNLINKED,
 			onClick = {
 				State.screen = Screen.UNLINKED
-				State.selectedIds.clear()
-				State.lastSelectedId = null
-				State.shiftRangeIds.clear()
+				State.clearSelection()
 			},
 			icon = { Icon(Icons.Filled.LinkOff, contentDescription = null) },
 			label = { Text("Unlinked") },
@@ -275,27 +260,8 @@ private fun UnlinkedList() {
 				},
 				hasCheckbox = true,
 				isChecked = item.id in State.selectedIds,
-				onCheckedChange = { checked ->
-					if (State.isShiftPressed && State.lastSelectedId != null) {
-						val last =
-							filteredUnlinkedItems.indexOfFirst { it.id == State.lastSelectedId }
-						val current = filteredUnlinkedItems.indexOfFirst { it.id == item.id }
-						if (last != -1 && current != -1) {
-							val start = min(last, current)
-							val end = max(last, current)
-							val rangeIds = (start..end).map { filteredUnlinkedItems[it].id }
-							val deselectedIds = State.shiftRangeIds - rangeIds.toSet()
-							State.selectedIds.removeAll(deselectedIds)
-							State.selectedIds.addAll(rangeIds)
-							State.shiftRangeIds.clear()
-							State.shiftRangeIds.addAll(rangeIds)
-						}
-					} else {
-						if (checked) State.selectedIds.add(item.id)
-						else State.selectedIds.remove(item.id)
-						State.lastSelectedId = item.id
-						State.shiftRangeIds.clear()
-					}
+				onCheckedChange = {
+					State.toggleSelection(item.id, filteredUnlinkedItems.map { it.id })
 				},
 			)
 		}

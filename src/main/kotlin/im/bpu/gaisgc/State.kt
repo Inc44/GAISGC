@@ -7,6 +7,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import java.io.File
 import java.util.Properties
+import kotlin.math.max
+import kotlin.math.min
 
 data class Item(
 	val id: String,
@@ -56,7 +58,7 @@ object State {
 	val selectedIds = mutableStateListOf<String>()
 	var isShiftPressed by mutableStateOf(false)
 	var lastSelectedId by mutableStateOf<String?>(null)
-	val shiftRangeIds = mutableListOf<String>()
+	private val shiftRangeIds = mutableListOf<String>()
 
 	init {
 		if (configFile.exists()) {
@@ -74,43 +76,100 @@ object State {
 	fun getFilteredUnlinkedItems(): List<Item> {
 		return unlinkedItems
 			.filter { it.name.contains(filterName, ignoreCase = true) }
-			.filter {
-				val mimeType = it.mimeType.lowercase()
-				when (filterMimeType) {
-					FilterMimeType.ALL -> true
-					FilterMimeType.DOCUMENT ->
-						mimeType.startsWith("text/") ||
-							mimeType.contains("document") ||
-							mimeType.contains("sheet") ||
-							mimeType.contains("presentation") ||
-							mimeType.contains("word") ||
-							mimeType.contains("excel") ||
-							mimeType.contains("powerpoint")
-					FilterMimeType.PHOTO -> mimeType.startsWith("image/")
-					FilterMimeType.PDF -> mimeType == "application/pdf"
-					FilterMimeType.VIDEO -> mimeType.startsWith("video/")
-					FilterMimeType.AUDIO -> mimeType.startsWith("audio/")
-					FilterMimeType.OTHER ->
-						mimeType.startsWith("text/") ||
-							mimeType.contains("document") ||
-							mimeType.contains("sheet") ||
-							mimeType.contains("presentation") ||
-							mimeType.contains("word") ||
-							mimeType.contains("excel") ||
-							mimeType.contains("powerpoint") ||
-							mimeType.startsWith("image/") ||
-							mimeType == "application/pdf" ||
-							mimeType.startsWith("video/") ||
-							mimeType.startsWith("audio/")
-				}
-			}
-			.sortedWith { item, nextItem ->
-				when (sort) {
-					Sort.DATE_DESC -> nextItem.createdTime.compareTo(item.createdTime)
-					Sort.DATE_ASC -> item.createdTime.compareTo(nextItem.createdTime)
-					Sort.NAME_ASC -> item.name.compareTo(nextItem.name, ignoreCase = true)
-					Sort.NAME_DESC -> nextItem.name.compareTo(item.name, ignoreCase = true)
-				}
-			}
+			.filter { matchesMimeType(it.mimeType) }
+			.sortedWith(getSortComparator())
+	}
+
+	private fun matchesMimeType(mimeType: String): Boolean {
+		val lowercaseMimeType = mimeType.lowercase()
+		return when (filterMimeType) {
+			FilterMimeType.ALL -> true
+			FilterMimeType.DOCUMENT -> isDocument(lowercaseMimeType)
+			FilterMimeType.PHOTO -> isPhoto(lowercaseMimeType)
+			FilterMimeType.PDF -> isPdf(lowercaseMimeType)
+			FilterMimeType.VIDEO -> isVideo(lowercaseMimeType)
+			FilterMimeType.AUDIO -> isAudio(lowercaseMimeType)
+			FilterMimeType.OTHER -> isOther(lowercaseMimeType)
+		}
+	}
+
+	private fun isDocument(mimeType: String) =
+		mimeType.startsWith("text/") ||
+			mimeType.contains("document") ||
+			mimeType.contains("sheet") ||
+			mimeType.contains("presentation") ||
+			mimeType.contains("word") ||
+			mimeType.contains("excel") ||
+			mimeType.contains("powerpoint")
+
+	private fun isPhoto(mimeType: String) = mimeType.startsWith("image/")
+
+	private fun isPdf(mimeType: String) = mimeType == "application/pdf"
+
+	private fun isVideo(mimeType: String) = mimeType.startsWith("video/")
+
+	private fun isAudio(mimeType: String) = mimeType.startsWith("audio/")
+
+	private fun isOther(mimeType: String) =
+		!isDocument(mimeType) &&
+			!isPhoto(mimeType) &&
+			!isPdf(mimeType) &&
+			!isVideo(mimeType) &&
+			!isAudio(mimeType)
+
+	private fun getSortComparator(): Comparator<Item> {
+		return when (sort) {
+			Sort.DATE_DESC -> compareByDescending { it.createdTime }
+			Sort.DATE_ASC -> compareBy { it.createdTime }
+			Sort.NAME_ASC -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.name }
+			Sort.NAME_DESC -> compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.name }
+		}
+	}
+
+	fun toggleSelection(id: String, ids: List<String>) {
+		if (isShiftPressed && lastSelectedId != null) {
+			selectRange(lastSelectedId!!, id, ids)
+		} else {
+			selectSingle(id)
+		}
+	}
+
+	private fun selectSingle(id: String) {
+		if (id in selectedIds) {
+			selectedIds.remove(id)
+		} else {
+			selectedIds.add(id)
+		}
+		lastSelectedId = id
+		shiftRangeIds.clear()
+	}
+
+	private fun selectRange(startId: String, endId: String, ids: List<String>) {
+		val lastIndex = ids.indexOf(startId)
+		val currentIndex = ids.indexOf(endId)
+		if (lastIndex == -1 || currentIndex == -1) return
+		val startIndex = min(lastIndex, currentIndex)
+		val endIndex = max(lastIndex, currentIndex)
+		val rangeIds = (startIndex..endIndex).map { ids[it] }
+		val deselectedIds = shiftRangeIds - rangeIds.toSet()
+		selectedIds.removeAll(deselectedIds)
+		selectedIds.addAll(rangeIds)
+		shiftRangeIds.clear()
+		shiftRangeIds.addAll(rangeIds)
+	}
+
+	fun selectAll(ids: List<String>) {
+		val allSelected = ids.all { it in selectedIds }
+		if (allSelected) {
+			selectedIds.clear()
+		} else {
+			ids.forEach { if (it !in selectedIds) selectedIds.add(it) }
+		}
+	}
+
+	fun clearSelection() {
+		selectedIds.clear()
+		lastSelectedId = null
+		shiftRangeIds.clear()
 	}
 }

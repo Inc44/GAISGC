@@ -75,16 +75,16 @@ object DriveManager {
 
 	private suspend fun getService(): Drive {
 		return withContext(Dispatchers.IO) {
-			driveService?.let {
-				return@withContext it
-			}
-			val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
-			val service =
-				Drive.Builder(httpTransport, JSON_FACTORY, getCredentials(httpTransport))
-					.setApplicationName(APPLICATION_NAME)
-					.build()
-			driveService = service
-			service
+			driveService
+				?: run {
+					val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
+					val service =
+						Drive.Builder(httpTransport, JSON_FACTORY, getCredentials(httpTransport))
+							.setApplicationName(APPLICATION_NAME)
+							.build()
+					driveService = service
+					service
+				}
 		}
 	}
 
@@ -176,7 +176,7 @@ object DriveManager {
 		withContext(Dispatchers.Main) {
 			chatFiles.forEach { State.items.add(Item(it.id, it.name)) }
 		}
-		val deferreds =
+		val deferredSubItems =
 			chatFiles.indices.map { i ->
 				async(Dispatchers.IO) {
 					val file = chatFiles[i]
@@ -194,16 +194,18 @@ object DriveManager {
 								}
 							}
 							.awaitAll()
-					val item = Item(file.id, file.name, subItems)
-					withContext(Dispatchers.Main) { State.items[i] = item }
+					withContext(Dispatchers.Main) {
+						State.items[i] = Item(file.id, file.name, subItems)
+					}
 					subItemIds
 				}
 			}
 		val chatIds = chatFiles.map { it.id }.toSet()
-		val driveDocumentIds = deferreds.awaitAll().flatten().toSet()
-		val gaisId = getFolderId(service, State.gaisPath) ?: return@coroutineScope
-		val gaisFiles = getFilesByParent(service, gaisId)
-		val orphanFiles = gaisFiles.filter { it.id !in chatIds && it.id !in driveDocumentIds }
+		val driveReferenceIds = deferredSubItems.awaitAll().flatten().toSet()
+		val gaisFolderId = getFolderId(service, State.gaisPath) ?: return@coroutineScope
+		val gaisFolderFiles = getFilesByParent(service, gaisFolderId)
+		val orphanFiles =
+			gaisFolderFiles.filter { it.id !in chatIds && it.id !in driveReferenceIds }
 		withContext(Dispatchers.Main) {
 			orphanFiles.forEach {
 				State.unlinkedItems.add(
