@@ -53,6 +53,7 @@ object State {
 	var filterName by mutableStateOf("")
 	var filterMimeType by mutableStateOf(FilterMimeType.ALL)
 	var sort by mutableStateOf(Sort.DATE_DESC)
+	val selectedIds = mutableStateListOf<String>()
 
 	init {
 		if (configFile.exists()) {
@@ -65,5 +66,48 @@ object State {
 		gaisPath = path
 		properties.setProperty(GAIS_PATH_PROPERTY, path)
 		configFile.outputStream().use { properties.store(it, null) }
+	}
+
+	fun getFilteredUnlinkedItems(): List<Item> {
+		return unlinkedItems
+			.filter { it.name.contains(filterName, ignoreCase = true) }
+			.filter {
+				val mimeType = it.mimeType.lowercase()
+				when (filterMimeType) {
+					FilterMimeType.ALL -> true
+					FilterMimeType.DOCUMENT ->
+						mimeType.startsWith("text/") ||
+							mimeType.contains("document") ||
+							mimeType.contains("sheet") ||
+							mimeType.contains("presentation") ||
+							mimeType.contains("word") ||
+							mimeType.contains("excel") ||
+							mimeType.contains("powerpoint")
+					FilterMimeType.PHOTO -> mimeType.startsWith("image/")
+					FilterMimeType.PDF -> mimeType == "application/pdf"
+					FilterMimeType.VIDEO -> mimeType.startsWith("video/")
+					FilterMimeType.AUDIO -> mimeType.startsWith("audio/")
+					FilterMimeType.OTHER ->
+						mimeType.startsWith("text/") ||
+							mimeType.contains("document") ||
+							mimeType.contains("sheet") ||
+							mimeType.contains("presentation") ||
+							mimeType.contains("word") ||
+							mimeType.contains("excel") ||
+							mimeType.contains("powerpoint") ||
+							mimeType.startsWith("image/") ||
+							mimeType == "application/pdf" ||
+							mimeType.startsWith("video/") ||
+							mimeType.startsWith("audio/")
+				}
+			}
+			.sortedWith { item, nextItem ->
+				when (sort) {
+					Sort.DATE_DESC -> nextItem.createdTime.compareTo(item.createdTime)
+					Sort.DATE_ASC -> item.createdTime.compareTo(nextItem.createdTime)
+					Sort.NAME_ASC -> item.name.compareTo(nextItem.name, ignoreCase = true)
+					Sort.NAME_DESC -> nextItem.name.compareTo(item.name, ignoreCase = true)
+				}
+			}
 	}
 }

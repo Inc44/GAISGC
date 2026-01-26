@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +39,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import im.bpu.gaisgc.FilterMimeType
@@ -52,12 +58,34 @@ fun ApplicationLayout() {
 	val scope = rememberCoroutineScope()
 	LaunchedEffect(Unit) { DriveManager.fetch() }
 	MaterialTheme {
-		Scaffold { padding ->
+		Scaffold(
+			modifier =
+				Modifier.onPreviewKeyEvent { event ->
+					if (
+						event.isCtrlPressed && event.key == Key.A && State.screen == Screen.UNLINKED
+					) {
+						val filteredUnlinkedItems = State.getFilteredUnlinkedItems()
+						val allSelectedIds =
+							filteredUnlinkedItems.all { it.id in State.selectedIds }
+						if (allSelectedIds) {
+							State.selectedIds.clear()
+						} else {
+							filteredUnlinkedItems.forEach {
+								if (it.id !in State.selectedIds) State.selectedIds.add(it.id)
+							}
+						}
+						true
+					} else {
+						false
+					}
+				}
+		) { padding ->
 			Row(modifier = Modifier.padding(padding).fillMaxSize()) {
 				NavigationSideBar()
 				ContentArea(
 					modifier = Modifier.weight(1f),
 					onRefresh = { scope.launch { DriveManager.fetch() } },
+					onTrash = { scope.launch { DriveManager.trash(State.selectedIds.toList()) } },
 				)
 				if (State.selectedImage != null) {
 					PreviewPane(modifier = Modifier.width(560.dp))
@@ -72,13 +100,19 @@ private fun NavigationSideBar() {
 	NavigationRail(modifier = Modifier.width(80.dp).fillMaxHeight()) {
 		NavigationRailItem(
 			selected = State.screen == Screen.MAIN,
-			onClick = { State.screen = Screen.MAIN },
+			onClick = {
+				State.screen = Screen.MAIN
+				State.selectedIds.clear()
+			},
 			icon = { Icon(Icons.Filled.ChatBubble, contentDescription = null) },
 			label = { Text("Chats") },
 		)
 		NavigationRailItem(
 			selected = State.screen == Screen.UNLINKED,
-			onClick = { State.screen = Screen.UNLINKED },
+			onClick = {
+				State.screen = Screen.UNLINKED
+				State.selectedIds.clear()
+			},
 			icon = { Icon(Icons.Filled.LinkOff, contentDescription = null) },
 			label = { Text("Unlinked") },
 		)
@@ -86,10 +120,14 @@ private fun NavigationSideBar() {
 }
 
 @Composable
-private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit) {
+private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit, onTrash: () -> Unit) {
 	var showFilters by remember { mutableStateOf(false) }
 	Column(modifier = modifier) {
-		Header(onRefresh = onRefresh, onToggleFilters = { showFilters = !showFilters })
+		Header(
+			onRefresh = onRefresh,
+			onToggleFilters = { showFilters = !showFilters },
+			onTrash = onTrash,
+		)
 		if (State.screen == Screen.UNLINKED && showFilters) {
 			FilterPanel()
 		}
@@ -116,19 +154,29 @@ private fun PreviewPane(modifier: Modifier) {
 }
 
 @Composable
-private fun Header(onRefresh: () -> Unit, onToggleFilters: () -> Unit) {
+private fun Header(onRefresh: () -> Unit, onToggleFilters: () -> Unit, onTrash: () -> Unit) {
 	Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-		if (State.screen == Screen.UNLINKED) {
+		if (State.screen == Screen.UNLINKED && State.screen == Screen.UNLINKED) {
 			PathInput(modifier = Modifier.weight(1f))
-			Spacer(Modifier.width(16.dp))
+			Spacer(Modifier.width(8.dp))
 			IconButton(onClick = onToggleFilters) {
 				Icon(Icons.Filled.FilterList, contentDescription = "Filters")
 			}
-			Spacer(Modifier.width(16.dp))
+			Spacer(Modifier.width(8.dp))
 		} else {
 			Title(modifier = Modifier.weight(1f))
 		}
 		Button(onClick = onRefresh) { Text("Refresh") }
+		if (State.selectedIds.isNotEmpty()) {
+			Spacer(Modifier.width(8.dp))
+			Button(
+				onClick = onTrash,
+				colors =
+					ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+			) {
+				Text("Trash (${State.selectedIds.size})")
+			}
+		}
 	}
 }
 
@@ -198,53 +246,19 @@ private fun ChatList() {
 @Composable
 private fun UnlinkedList() {
 	val scope = rememberCoroutineScope()
-	val filteredItems =
-		State.unlinkedItems
-			.filter { it.name.contains(State.filterName, ignoreCase = true) }
-			.filter {
-				val mimeType = it.mimeType.lowercase()
-				when (State.filterMimeType) {
-					FilterMimeType.ALL -> true
-					FilterMimeType.DOCUMENT ->
-						mimeType.startsWith("text/") ||
-							mimeType.contains("document") ||
-							mimeType.contains("sheet") ||
-							mimeType.contains("presentation") ||
-							mimeType.contains("word") ||
-							mimeType.contains("excel") ||
-							mimeType.contains("powerpoint")
-					FilterMimeType.PHOTO -> mimeType.startsWith("image/")
-					FilterMimeType.PDF -> mimeType == "application/pdf"
-					FilterMimeType.VIDEO -> mimeType.startsWith("video/")
-					FilterMimeType.AUDIO -> mimeType.startsWith("audio/")
-					FilterMimeType.OTHER ->
-						mimeType.startsWith("text/") ||
-							mimeType.contains("document") ||
-							mimeType.contains("sheet") ||
-							mimeType.contains("presentation") ||
-							mimeType.contains("word") ||
-							mimeType.contains("excel") ||
-							mimeType.contains("powerpoint") ||
-							mimeType.startsWith("image/") ||
-							mimeType == "application/pdf" ||
-							mimeType.startsWith("video/") ||
-							mimeType.startsWith("audio/")
-				}
-			}
-			.sortedWith { item, nextItem ->
-				when (State.sort) {
-					Sort.DATE_DESC -> nextItem.createdTime.compareTo(item.createdTime)
-					Sort.DATE_ASC -> item.createdTime.compareTo(nextItem.createdTime)
-					Sort.NAME_ASC -> item.name.compareTo(nextItem.name, ignoreCase = true)
-					Sort.NAME_DESC -> nextItem.name.compareTo(item.name, ignoreCase = true)
-				}
-			}
+	val filteredUnlinkedItems = State.getFilteredUnlinkedItems()
 	LazyColumn(modifier = Modifier.padding(16.dp)) {
-		items(filteredItems) { item ->
+		items(filteredUnlinkedItems) { item ->
 			ItemRow(
 				item = item,
 				onClick = {
 					scope.launch { State.selectedImage = DriveManager.getImageById(item.id) }
+				},
+				hasCheckbox = true,
+				isChecked = item.id in State.selectedIds,
+				onCheckedChange = { checked ->
+					if (checked) State.selectedIds.add(item.id)
+					else State.selectedIds.remove(item.id)
 				},
 			)
 		}
@@ -252,16 +266,30 @@ private fun UnlinkedList() {
 }
 
 @Composable
-private fun ItemRow(item: Item, depth: Int = 0, onClick: (() -> Unit)? = null) {
+private fun ItemRow(
+	item: Item,
+	depth: Int = 0,
+	onClick: (() -> Unit)? = null,
+	hasCheckbox: Boolean = false,
+	isChecked: Boolean = false,
+	onCheckedChange: ((Boolean) -> Unit)? = null,
+) {
 	val color =
 		if (item.isNotFound) MaterialTheme.colorScheme.error
 		else MaterialTheme.colorScheme.onSurface
 	val modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
-	Column(
+	Row(
 		modifier =
-			modifier.padding(start = (depth * 16).dp, top = 4.dp, bottom = 4.dp).then(modifier)
+			modifier.padding(start = (depth * 16).dp, top = 4.dp, bottom = 4.dp).fillMaxWidth(),
+		verticalAlignment = Alignment.CenterVertically,
 	) {
-		Text(text = item.name, style = MaterialTheme.typography.bodyMedium, color = color)
-		item.subItems.forEach { subItem -> ItemRow(subItem, depth + 1) }
+		if (hasCheckbox && onCheckedChange != null) {
+			Checkbox(checked = isChecked, onCheckedChange = onCheckedChange)
+			Spacer(Modifier.width(8.dp))
+		}
+		Column {
+			Text(text = item.name, style = MaterialTheme.typography.bodyMedium, color = color)
+			item.subItems.forEach { subItem -> ItemRow(subItem, depth + 1) }
+		}
 	}
 }

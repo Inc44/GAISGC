@@ -55,7 +55,7 @@ object DriveManager {
 	private const val USER_ID = "user"
 	private const val PORT = 8888
 	private val JSON_FACTORY = GsonFactory.getDefaultInstance()
-	private val SCOPES = listOf(DriveScopes.DRIVE_READONLY)
+	private val SCOPES = listOf(DriveScopes.DRIVE)
 	private var driveService: Drive? = null
 
 	private fun getCredentials(httpTransport: HttpTransport): Credential {
@@ -118,8 +118,9 @@ object DriveManager {
 
 	private fun extractSubItemIds(json: String): List<String> {
 		val chat = JSON_FACTORY.fromString(json, Chat::class.java)
-		return chat.chunkedPrompt?.chunks?.mapNotNull { it.driveDocument?.id ?: it.driveImage?.id ?: it.driveVideo?.id }
-			?: emptyList()
+		return chat.chunkedPrompt?.chunks?.mapNotNull {
+			it.driveDocument?.id ?: it.driveImage?.id ?: it.driveVideo?.id
+		} ?: emptyList()
 	}
 
 	private suspend fun getFolderId(service: Drive, path: String): String? =
@@ -168,6 +169,7 @@ object DriveManager {
 			State.items.clear()
 			State.unlinkedItems.clear()
 			State.selectedImage = null
+			State.selectedIds.clear()
 		}
 		val service = getService()
 		val chatFiles = getFilesByMime(service, MIME_PROMPT)
@@ -227,6 +229,24 @@ object DriveManager {
 				Image.makeFromEncoded(bytes).toComposeImageBitmap()
 			} catch (exception: Exception) {
 				null
+			}
+		}
+
+	suspend fun trash(ids: List<String>) =
+		withContext(Dispatchers.IO) {
+			val service = getService()
+			ids.forEach { id ->
+				try {
+					val file = DriveFile()
+					file.trashed = true
+					service.files().update(id, file).execute()
+				} catch (exception: Exception) {
+					exception.printStackTrace()
+				}
+			}
+			withContext(Dispatchers.Main) {
+				State.unlinkedItems.removeIf { it.id in ids }
+				State.selectedIds.removeAll(ids)
 			}
 		}
 }
