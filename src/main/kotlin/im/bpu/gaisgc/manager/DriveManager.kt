@@ -56,6 +56,7 @@ object DriveManager {
 	private const val MIME_FOLDER = "application/vnd.google-apps.folder"
 	private const val USER_ID = "user"
 	private const val PORT = 8888
+	private const val TIMEOUT_MS = 0
 	private val JSON_FACTORY = GsonFactory.getDefaultInstance()
 	private val SCOPES = listOf(DriveScopes.DRIVE)
 	private var driveService: Drive? = null
@@ -81,7 +82,12 @@ object DriveManager {
 				?: run {
 					val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
 					val service =
-						Drive.Builder(httpTransport, JSON_FACTORY, getCredentials(httpTransport))
+						Drive.Builder(httpTransport, JSON_FACTORY) { request ->
+								val credential = getCredentials(httpTransport)
+								credential.initialize(request)
+								request.connectTimeout = TIMEOUT_MS
+								request.readTimeout = TIMEOUT_MS
+							}
 							.setApplicationName(APPLICATION_NAME)
 							.build()
 					driveService = service
