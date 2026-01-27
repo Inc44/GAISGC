@@ -26,6 +26,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import org.apache.pdfbox.Loader
+import org.apache.pdfbox.rendering.PDFRenderer
 import org.jetbrains.skia.Image
 
 class Chat {
@@ -168,7 +170,9 @@ object DriveManager {
 		withContext(Dispatchers.Main) {
 			State.items.clear()
 			State.unlinkedItems.clear()
+			State.selectedDocument = null
 			State.selectedImage = null
+			State.selectedPdf = null
 			State.selectedIds.clear()
 		}
 		val service = getService()
@@ -221,6 +225,18 @@ object DriveManager {
 		}
 	}
 
+	suspend fun getDocumentById(id: String): String? =
+		withContext(Dispatchers.IO) {
+			try {
+				val service = getService()
+				val baos = ByteArrayOutputStream()
+				service.files().get(id).executeMediaAndDownloadTo(baos)
+				baos.toString("UTF-8")
+			} catch (exception: Exception) {
+				null
+			}
+		}
+
 	suspend fun getImageById(id: String): ImageBitmap? =
 		withContext(Dispatchers.IO) {
 			try {
@@ -231,6 +247,26 @@ object DriveManager {
 				Image.makeFromEncoded(bytes).toComposeImageBitmap()
 			} catch (exception: Exception) {
 				null
+			}
+		}
+
+	suspend fun getPdfById(id: String): List<ImageBitmap> =
+		withContext(Dispatchers.IO) {
+			try {
+				val service = getService()
+				val baos = ByteArrayOutputStream()
+				service.files().get(id).executeMediaAndDownloadTo(baos)
+				val bytes = baos.toByteArray()
+				val document = Loader.loadPDF(bytes)
+				val renderer = PDFRenderer(document)
+				val images =
+					(0 until document.numberOfPages).map { pageIndex ->
+						renderer.renderImageWithDPI(pageIndex, 300f).toComposeImageBitmap()
+					}
+				document.close()
+				images
+			} catch (exception: Exception) {
+				emptyList()
 			}
 		}
 

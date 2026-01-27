@@ -1,6 +1,7 @@
 package im.bpu.gaisgc.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.FilterList
@@ -48,6 +53,7 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import im.bpu.gaisgc.FilterMimeType
@@ -71,7 +77,11 @@ fun ApplicationLayout() {
 					onRefresh = { scope.launch { DriveManager.fetch() } },
 					onTrash = { scope.launch { DriveManager.trash(State.selectedIds.toList()) } },
 				)
-				if (State.selectedImage != null) {
+				if (
+					State.selectedDocument != null ||
+						State.selectedImage != null ||
+						State.selectedPdf != null
+				) {
 					PreviewPane(modifier = Modifier.width(560.dp))
 				}
 			}
@@ -143,13 +153,41 @@ private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit, onTrash: () -
 
 @Composable
 private fun PreviewPane(modifier: Modifier) {
+	val document = State.selectedDocument
+	val image = State.selectedImage
+	val pdf = State.selectedPdf
 	Column(modifier = modifier.fillMaxHeight().padding(16.dp)) {
-		State.selectedImage?.let {
+		if (pdf != null) {
+			LazyColumn(
+				modifier = Modifier.fillMaxSize(),
+				verticalArrangement = Arrangement.spacedBy(16.dp),
+			) {
+				items(pdf) { image ->
+					Image(
+						bitmap = image,
+						contentDescription = "Preview pane",
+						modifier = Modifier.fillMaxWidth(),
+					)
+				}
+			}
+		} else if (image != null) {
 			Image(
-				bitmap = it,
+				bitmap = image,
 				contentDescription = "Preview pane",
 				modifier = Modifier.fillMaxSize(),
 			)
+		} else if (document != null) {
+			SelectionContainer {
+				LazyColumn(modifier = Modifier.fillMaxSize()) {
+					item {
+						Text(
+							text = document,
+							modifier = Modifier.fillMaxWidth(),
+							fontFamily = FontFamily.Monospace,
+						)
+					}
+				}
+			}
 		}
 	}
 }
@@ -256,7 +294,19 @@ private fun UnlinkedList() {
 			ItemRow(
 				item = item,
 				onClick = {
-					scope.launch { State.selectedImage = DriveManager.getImageById(item.id) }
+					scope.launch {
+						State.selectedDocument = null
+						State.selectedImage = null
+						State.selectedPdf = null
+						val lowercaseMimeType = item.mimeType.lowercase()
+						if (State.isDocument(lowercaseMimeType)) {
+							State.selectedDocument = DriveManager.getDocumentById(item.id)
+						} else if (State.isPhoto(lowercaseMimeType)) {
+							State.selectedImage = DriveManager.getImageById(item.id)
+						} else if (State.isPdf(lowercaseMimeType)) {
+							State.selectedPdf = DriveManager.getPdfById(item.id)
+						}
+					}
 				},
 				hasCheckbox = true,
 				isChecked = item.id in State.selectedIds,

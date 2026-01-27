@@ -51,7 +51,9 @@ object State {
 	var gaisPath by mutableStateOf(DEFAULT_GAIS_PATH)
 	val items = mutableStateListOf<Item>()
 	val unlinkedItems = mutableStateListOf<Item>()
+	var selectedDocument by mutableStateOf<String?>(null)
 	var selectedImage by mutableStateOf<ImageBitmap?>(null)
+	var selectedPdf by mutableStateOf<List<ImageBitmap>?>(null)
 	var filterName by mutableStateOf("")
 	var filterMimeType by mutableStateOf(FilterMimeType.ALL)
 	var sort by mutableStateOf(Sort.DATE_DESC)
@@ -93,7 +95,7 @@ object State {
 		}
 	}
 
-	private fun isDocument(mimeType: String) =
+	fun isDocument(mimeType: String) =
 		mimeType.startsWith("text/") ||
 			mimeType.contains("document") ||
 			mimeType.contains("sheet") ||
@@ -102,9 +104,9 @@ object State {
 			mimeType.contains("excel") ||
 			mimeType.contains("powerpoint")
 
-	private fun isPhoto(mimeType: String) = mimeType.startsWith("image/")
+	fun isPhoto(mimeType: String) = mimeType.startsWith("image/")
 
-	private fun isPdf(mimeType: String) = mimeType == "application/pdf"
+	fun isPdf(mimeType: String) = mimeType == "application/pdf"
 
 	private fun isVideo(mimeType: String) = mimeType.startsWith("video/")
 
@@ -173,5 +175,8 @@ object State {
 		selectedIds.clear()
 		lastSelectedId = null
 		shiftRangeIds.clear()
+		selectedDocument = null
+		selectedImage = null
+		selectedPdf = null
 	}
 }
