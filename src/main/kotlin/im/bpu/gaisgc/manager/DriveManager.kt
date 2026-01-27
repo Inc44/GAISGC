@@ -284,15 +284,15 @@ object DriveManager {
 					val file = DriveFile()
 					file.trashed = true
 					service.files().update(id, file).execute()
+					withContext(Dispatchers.Main) {
+						State.unlinkedItems.removeIf { it.id == id }
+						State.selectedIds.remove(id)
+						if (State.lastSelectedId == id) {
+							State.lastSelectedId = null
+						}
+					}
 				} catch (exception: Exception) {
 					exception.printStackTrace()
-				}
-			}
-			withContext(Dispatchers.Main) {
-				State.unlinkedItems.removeIf { it.id in ids }
-				State.selectedIds.removeAll(ids)
-				if (State.lastSelectedId in ids) {
-					State.lastSelectedId = null
 				}
 			}
 		}
