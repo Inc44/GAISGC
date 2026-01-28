@@ -6,12 +6,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -224,29 +226,63 @@ private fun PreviewPane(modifier: Modifier) {
 
 @Composable
 private fun Header(onRefresh: () -> Unit, onToggleFilters: () -> Unit, onTrash: () -> Unit) {
-	Row(
-		modifier = Modifier.padding(16.dp).heightIn(min = 64.dp),
-		verticalAlignment = Alignment.CenterVertically,
-	) {
-		if (State.screen == Screen.UNLINKED) {
-			PathInput(modifier = Modifier.weight(1f))
-			Spacer(Modifier.width(8.dp))
-			IconButton(onClick = onToggleFilters) {
-				Icon(Icons.Filled.FilterList, contentDescription = "Filters")
+	BoxWithConstraints(modifier = Modifier.padding(16.dp)) {
+		if (State.screen == Screen.UNLINKED && maxWidth < 480.dp) {
+			Column {
+				PathInput(modifier = Modifier.fillMaxWidth())
+				Spacer(Modifier.height(8.dp))
+				Row(
+					modifier = Modifier.fillMaxWidth(),
+					horizontalArrangement = Arrangement.End,
+					verticalAlignment = Alignment.CenterVertically,
+				) {
+					IconButton(onClick = onToggleFilters) {
+						Icon(Icons.Filled.FilterList, contentDescription = "Filters")
+					}
+					Spacer(Modifier.width(8.dp))
+					Button(onClick = onRefresh) { Text("Refresh") }
+					if (State.selectedIds.isNotEmpty()) {
+						Spacer(Modifier.width(8.dp))
+						Button(
+							onClick = onTrash,
+							colors =
+								ButtonDefaults.buttonColors(
+									containerColor = MaterialTheme.colorScheme.error
+								),
+						) {
+							Text("Trash (${State.selectedIds.size})")
+						}
+					}
+				}
 			}
-			Spacer(Modifier.width(8.dp))
 		} else {
-			Title(modifier = Modifier.weight(1f))
-		}
-		Button(onClick = onRefresh) { Text("Refresh") }
-		if (State.selectedIds.isNotEmpty()) {
-			Spacer(Modifier.width(8.dp))
-			Button(
-				onClick = onTrash,
-				colors =
-					ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+			Row(
+				modifier = Modifier.heightIn(min = 64.dp),
+				verticalAlignment = Alignment.CenterVertically,
 			) {
-				Text("Trash (${State.selectedIds.size})")
+				if (State.screen == Screen.UNLINKED) {
+					PathInput(modifier = Modifier.weight(1f))
+					Spacer(Modifier.width(8.dp))
+					IconButton(onClick = onToggleFilters) {
+						Icon(Icons.Filled.FilterList, contentDescription = "Filters")
+					}
+					Spacer(Modifier.width(8.dp))
+				} else {
+					Title(modifier = Modifier.weight(1f))
+				}
+				Button(onClick = onRefresh) { Text("Refresh") }
+				if (State.selectedIds.isNotEmpty()) {
+					Spacer(Modifier.width(8.dp))
+					Button(
+						onClick = onTrash,
+						colors =
+							ButtonDefaults.buttonColors(
+								containerColor = MaterialTheme.colorScheme.error
+							),
+					) {
+						Text("Trash (${State.selectedIds.size})")
+					}
+				}
 			}
 		}
 	}
