@@ -166,7 +166,7 @@ object DriveManager {
 						.files()
 						.list()
 						.setQ("'$parentId' in parents and trashed = false")
-						.setFields("nextPageToken, files(id, name, createdTime, mimeType)")
+						.setFields("nextPageToken, files(id, name, createdTime, mimeType, size)")
 						.setPageToken(pageToken)
 						.execute()
 				}
@@ -230,6 +230,7 @@ object DriveManager {
 						createdTime = it.createdTime?.value ?: 0L,
 						mimeType = it.mimeType ?: "",
 						isNotFound = true,
+						size = it.getSize() ?: 0L,
 					)
 				)
 			}

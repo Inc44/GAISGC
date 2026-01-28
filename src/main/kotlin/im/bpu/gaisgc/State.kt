@@ -25,6 +25,7 @@ data class Item(
 	val isNotFound: Boolean = false,
 	val createdTime: Long = 0L,
 	val mimeType: String = "",
+	val size: Long = -1L,
 )
 
 class PdfDocument(private val document: PDDocument, firstPage: ImageBitmap) : Closeable {

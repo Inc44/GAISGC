@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -404,8 +405,11 @@ private fun ItemRow(
 	isOpened: Boolean = false,
 ) {
 	val color =
-		if (item.isNotFound) MaterialTheme.colorScheme.error
-		else MaterialTheme.colorScheme.onSurface
+		when {
+			item.size == 0L -> Color(MaterialTheme.colorScheme.error.toArgb() xor 0x00FFFFFF)
+			item.isNotFound -> MaterialTheme.colorScheme.error
+			else -> MaterialTheme.colorScheme.onSurface
+		}
 	val modifier =
 		Modifier.fillMaxWidth()
 			.clip(RoundedCornerShape(8.dp))
