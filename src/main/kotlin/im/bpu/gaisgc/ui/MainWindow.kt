@@ -303,6 +303,10 @@ private fun UnlinkedList() {
 							State.selectedImage = DriveManager.getImageById(item.id)
 						} else if (State.isPdf(lowercaseMimeType)) {
 							State.selectedPdf = DriveManager.getPdfById(item.id, scope)
+						} else if (State.isVideo(lowercaseMimeType)) {
+							State.selectedImage = DriveManager.getVideoById(item.id)
+						} else if (State.isOther(lowercaseMimeType)) {
+							State.selectedDocument = DriveManager.getDocumentById(item.id)
 						}
 					}
 				},

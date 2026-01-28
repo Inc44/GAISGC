@@ -9,6 +9,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.client.http.GenericUrl
 import com.google.api.client.http.HttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.Key
@@ -273,6 +274,20 @@ object DriveManager {
 				val pdfDocument = PdfDocument(document, firstPage)
 				pdfDocument.renderRemaining(scope)
 				pdfDocument
+			} catch (exception: Exception) {
+				null
+			}
+		}
+
+	suspend fun getVideoById(id: String): ImageBitmap? =
+		withContext(Dispatchers.IO) {
+			try {
+				val service = getService()
+				val file = service.files().get(id).setFields("thumbnailLink").execute()
+				val link = file.thumbnailLink ?: return@withContext null
+				val resp = service.requestFactory.buildGetRequest(GenericUrl(link)).execute()
+				val bytes = resp.content.use { it.readBytes() }
+				Image.makeFromEncoded(bytes).toComposeImageBitmap()
 			} catch (exception: Exception) {
 				null
 			}

@@ -143,11 +143,11 @@ object State {
 
 	fun isPdf(mimeType: String) = mimeType == "application/pdf"
 
-	private fun isVideo(mimeType: String) = mimeType.startsWith("video/")
+	fun isVideo(mimeType: String) = mimeType.startsWith("video/")
 
-	private fun isAudio(mimeType: String) = mimeType.startsWith("audio/")
+	fun isAudio(mimeType: String) = mimeType.startsWith("audio/")
 
-	private fun isOther(mimeType: String) =
+	fun isOther(mimeType: String) =
 		!isDocument(mimeType) &&
 			!isPhoto(mimeType) &&
 			!isPdf(mimeType) &&
