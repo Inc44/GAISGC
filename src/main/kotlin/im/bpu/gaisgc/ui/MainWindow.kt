@@ -97,6 +97,10 @@ private fun handleKeyEvent(event: KeyEvent, scope: CoroutineScope): Boolean {
 		return false
 	}
 	if (event.type != KeyEventType.KeyDown || State.screen != Screen.UNLINKED) return false
+	if (event.key == Key.Escape && (State.selectedIds.isNotEmpty() || State.previewId != null)) {
+		State.clearSelection()
+		return true
+	}
 	if (event.key == Key.Delete && State.selectedIds.isNotEmpty()) {
 		scope.launch { DriveManager.trash(State.selectedIds.toList()) }
 		return true
