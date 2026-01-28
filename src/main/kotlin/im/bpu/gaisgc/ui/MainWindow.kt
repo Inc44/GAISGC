@@ -1,7 +1,6 @@
 package im.bpu.gaisgc.ui
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,10 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.FilterList
@@ -62,6 +58,7 @@ import im.bpu.gaisgc.Screen
 import im.bpu.gaisgc.Sort
 import im.bpu.gaisgc.State
 import im.bpu.gaisgc.manager.DriveManager
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 @Composable
@@ -69,7 +66,7 @@ fun ApplicationLayout() {
 	val scope = rememberCoroutineScope()
 	LaunchedEffect(Unit) { DriveManager.fetch() }
 	MaterialTheme {
-		Scaffold(modifier = Modifier.onPreviewKeyEvent { handleKeyEvent(it) }) { padding ->
+		Scaffold(modifier = Modifier.onPreviewKeyEvent { handleKeyEvent(it, scope) }) { padding ->
 			Row(modifier = Modifier.padding(padding).fillMaxSize()) {
 				NavigationSideBar()
 				ContentArea(
@@ -89,17 +86,17 @@ fun ApplicationLayout() {
 	}
 }
 
-private fun handleKeyEvent(event: KeyEvent): Boolean {
+private fun handleKeyEvent(event: KeyEvent, scope: CoroutineScope): Boolean {
 	if (event.key == Key.ShiftLeft || event.key == Key.ShiftRight) {
 		State.isShiftPressed = event.type == KeyEventType.KeyDown
 		return false
 	}
-	if (
-		event.type == KeyEventType.KeyDown &&
-			event.isCtrlPressed &&
-			event.key == Key.A &&
-			State.screen == Screen.UNLINKED
-	) {
+	if (event.type != KeyEventType.KeyDown || State.screen != Screen.UNLINKED) return false
+	if (event.key == Key.Delete && State.selectedIds.isNotEmpty()) {
+		scope.launch { DriveManager.trash(State.selectedIds.toList()) }
+		return true
+	}
+	if (event.isCtrlPressed && event.key == Key.A) {
 		State.selectAll(State.getFilteredUnlinkedItems().map { it.id })
 		return true
 	}
@@ -162,9 +159,9 @@ private fun PreviewPane(modifier: Modifier) {
 				modifier = Modifier.fillMaxSize(),
 				verticalArrangement = Arrangement.spacedBy(16.dp),
 			) {
-				items(pdf) { image ->
+				items(pdf.pages) { bitmap ->
 					Image(
-						bitmap = image,
+						bitmap = bitmap,
 						contentDescription = "Preview pane",
 						modifier = Modifier.fillMaxWidth(),
 					)
@@ -297,6 +294,7 @@ private fun UnlinkedList() {
 					scope.launch {
 						State.selectedDocument = null
 						State.selectedImage = null
+						State.selectedPdf?.close()
 						State.selectedPdf = null
 						val lowercaseMimeType = item.mimeType.lowercase()
 						if (State.isDocument(lowercaseMimeType)) {
@@ -304,7 +302,7 @@ private fun UnlinkedList() {
 						} else if (State.isPhoto(lowercaseMimeType)) {
 							State.selectedImage = DriveManager.getImageById(item.id)
 						} else if (State.isPdf(lowercaseMimeType)) {
-							State.selectedPdf = DriveManager.getPdfById(item.id)
+							State.selectedPdf = DriveManager.getPdfById(item.id, scope)
 						}
 					}
 				},

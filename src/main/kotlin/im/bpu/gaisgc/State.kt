@@ -5,10 +5,18 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import java.io.Closeable
 import java.io.File
 import java.util.Properties
 import kotlin.math.max
 import kotlin.math.min
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.rendering.PDFRenderer
 
 data class Item(
 	val id: String,
@@ -18,6 +26,33 @@ data class Item(
 	val createdTime: Long = 0L,
 	val mimeType: String = "",
 )
+
+class PdfDocument(private val document: PDDocument, firstPage: ImageBitmap) : Closeable {
+	val pages = mutableStateListOf(firstPage)
+	@Volatile private var isClosed = false
+
+	fun renderRemaining(scope: CoroutineScope) {
+		scope.launch(Dispatchers.IO) {
+			val renderer = PDFRenderer(document)
+			for (i in 1 until document.numberOfPages) {
+				if (isClosed) break
+				val bitmap =
+					synchronized(document) {
+						if (isClosed) return@synchronized null
+						renderer.renderImageWithDPI(i, 300f).toComposeImageBitmap()
+					}
+				if (bitmap != null) {
+					withContext(Dispatchers.Main) { if (!isClosed) pages.add(bitmap) }
+				}
+			}
+		}
+	}
+
+	override fun close() {
+		isClosed = true
+		synchronized(document) { document.close() }
+	}
+}
 
 enum class Screen {
 	MAIN,
@@ -53,7 +88,7 @@ object State {
 	val unlinkedItems = mutableStateListOf<Item>()
 	var selectedDocument by mutableStateOf<String?>(null)
 	var selectedImage by mutableStateOf<ImageBitmap?>(null)
-	var selectedPdf by mutableStateOf<List<ImageBitmap>?>(null)
+	var selectedPdf by mutableStateOf<PdfDocument?>(null)
 	var filterName by mutableStateOf("")
 	var filterMimeType by mutableStateOf(FilterMimeType.ALL)
 	var sort by mutableStateOf(Sort.DATE_DESC)
@@ -177,6 +212,7 @@ object State {
 		shiftRangeIds.clear()
 		selectedDocument = null
 		selectedImage = null
+		selectedPdf?.close()
 		selectedPdf = null
 	}
 }

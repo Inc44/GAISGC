@@ -17,14 +17,17 @@ import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File as DriveFile
 import im.bpu.gaisgc.Item
+import im.bpu.gaisgc.PdfDocument
 import im.bpu.gaisgc.State
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStreamReader
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.rendering.PDFRenderer
@@ -178,6 +181,7 @@ object DriveManager {
 			State.unlinkedItems.clear()
 			State.selectedDocument = null
 			State.selectedImage = null
+			State.selectedPdf?.close()
 			State.selectedPdf = null
 			State.selectedIds.clear()
 		}
@@ -256,7 +260,7 @@ object DriveManager {
 			}
 		}
 
-	suspend fun getPdfById(id: String): List<ImageBitmap> =
+	suspend fun getPdfById(id: String, scope: CoroutineScope): PdfDocument? =
 		withContext(Dispatchers.IO) {
 			try {
 				val service = getService()
@@ -265,34 +269,36 @@ object DriveManager {
 				val bytes = baos.toByteArray()
 				val document = Loader.loadPDF(bytes)
 				val renderer = PDFRenderer(document)
-				val images =
-					(0 until document.numberOfPages).map { pageIndex ->
-						renderer.renderImageWithDPI(pageIndex, 300f).toComposeImageBitmap()
-					}
-				document.close()
-				images
+				val firstPage = renderer.renderImageWithDPI(0, 300f).toComposeImageBitmap()
+				val pdfDocument = PdfDocument(document, firstPage)
+				pdfDocument.renderRemaining(scope)
+				pdfDocument
 			} catch (exception: Exception) {
-				emptyList()
+				null
 			}
 		}
 
 	suspend fun trash(ids: List<String>) =
 		withContext(Dispatchers.IO) {
 			val service = getService()
-			ids.forEach { id ->
-				try {
-					val file = DriveFile()
-					file.trashed = true
-					service.files().update(id, file).execute()
-					withContext(Dispatchers.Main) {
-						State.unlinkedItems.removeIf { it.id == id }
-						State.selectedIds.remove(id)
-						if (State.lastSelectedId == id) {
-							State.lastSelectedId = null
+			coroutineScope {
+				ids.map { id ->
+					launch {
+						try {
+							val file = DriveFile()
+							file.trashed = true
+							service.files().update(id, file).execute()
+							withContext(Dispatchers.Main) {
+								State.unlinkedItems.removeIf { it.id == id }
+								State.selectedIds.remove(id)
+								if (State.lastSelectedId == id) {
+									State.lastSelectedId = null
+								}
+							}
+						} catch (exception: Exception) {
+							exception.printStackTrace()
 						}
 					}
-				} catch (exception: Exception) {
-					exception.printStackTrace()
 				}
 			}
 		}
