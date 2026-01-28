@@ -3,6 +3,7 @@ package im.bpu.gaisgc.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -109,7 +110,15 @@ private fun handleKeyEvent(event: KeyEvent, scope: CoroutineScope): Boolean {
 
 @Composable
 private fun NavigationSideBar() {
-	NavigationRail(modifier = Modifier.width(80.dp).fillMaxHeight()) {
+	NavigationRail(
+		modifier =
+			Modifier.width(80.dp).fillMaxHeight().clickable(
+				interactionSource = remember { MutableInteractionSource() },
+				indication = null,
+			) {
+				State.clearSelection()
+			}
+	) {
 		NavigationRailItem(
 			selected = State.screen == Screen.MAIN,
 			onClick = {
@@ -134,7 +143,15 @@ private fun NavigationSideBar() {
 @Composable
 private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit, onTrash: () -> Unit) {
 	var showFilters by remember { mutableStateOf(false) }
-	Column(modifier = modifier) {
+	Column(
+		modifier =
+			modifier.clickable(
+				interactionSource = remember { MutableInteractionSource() },
+				indication = null,
+			) {
+				State.clearSelection()
+			}
+	) {
 		Header(
 			onRefresh = onRefresh,
 			onToggleFilters = { showFilters = !showFilters },
@@ -143,7 +160,15 @@ private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit, onTrash: () -
 		if (State.screen == Screen.UNLINKED && showFilters) {
 			FilterPanel()
 		}
-		Box(modifier = Modifier.weight(1f)) {
+		Box(
+			modifier =
+				Modifier.weight(1f).clickable(
+					interactionSource = remember { MutableInteractionSource() },
+					indication = null,
+				) {
+					State.clearSelection()
+				}
+		) {
 			when (State.screen) {
 				Screen.MAIN -> ChatList()
 				Screen.UNLINKED -> UnlinkedList()
