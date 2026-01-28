@@ -86,7 +86,7 @@ object State {
 	var gaisPath by mutableStateOf(DEFAULT_GAIS_PATH)
 	val items = mutableStateListOf<Item>()
 	val unlinkedItems = mutableStateListOf<Item>()
-	var selectedDocument by mutableStateOf<String?>(null)
+	val selectedDocument = mutableStateListOf<String>()
 	var selectedImage by mutableStateOf<ImageBitmap?>(null)
 	var selectedPdf by mutableStateOf<PdfDocument?>(null)
 	var filterName by mutableStateOf("")
@@ -175,10 +175,11 @@ object State {
 	private fun selectSingle(id: String) {
 		if (id in selectedIds) {
 			selectedIds.remove(id)
+			if (lastSelectedId == id) lastSelectedId = null
 		} else {
 			selectedIds.add(id)
+			lastSelectedId = id
 		}
-		lastSelectedId = id
 		shiftRangeIds.clear()
 	}
 
@@ -212,7 +213,7 @@ object State {
 		lastSelectedId = null
 		previewId = null
 		shiftRangeIds.clear()
-		selectedDocument = null
+		selectedDocument.clear()
 		selectedImage = null
 		selectedPdf?.close()
 		selectedPdf = null

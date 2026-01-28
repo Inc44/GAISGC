@@ -180,7 +180,7 @@ object DriveManager {
 		withContext(Dispatchers.Main) {
 			State.items.clear()
 			State.unlinkedItems.clear()
-			State.selectedDocument = null
+			State.selectedDocument.clear()
 			State.selectedImage = null
 			State.selectedPdf?.close()
 			State.selectedPdf = null
@@ -236,13 +236,17 @@ object DriveManager {
 		}
 	}
 
-	suspend fun getDocumentById(id: String): String? =
+	suspend fun getDocumentById(id: String): List<String>? =
 		withContext(Dispatchers.IO) {
 			try {
 				val service = getService()
 				val baos = ByteArrayOutputStream()
 				service.files().get(id).executeMediaAndDownloadTo(baos)
-				baos.toString("UTF-8")
+				val bytes = baos.toByteArray()
+				val document = String(bytes, Charsets.UTF_8)
+				val reader = document.reader()
+				val lines = reader.readLines()
+				lines
 			} catch (exception: Exception) {
 				null
 			}
@@ -255,7 +259,8 @@ object DriveManager {
 				val baos = ByteArrayOutputStream()
 				service.files().get(id).executeMediaAndDownloadTo(baos)
 				val bytes = baos.toByteArray()
-				Image.makeFromEncoded(bytes).toComposeImageBitmap()
+				val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
+				image
 			} catch (exception: Exception) {
 				null
 			}
@@ -287,7 +292,8 @@ object DriveManager {
 				val link = file.thumbnailLink ?: return@withContext null
 				val resp = service.requestFactory.buildGetRequest(GenericUrl(link)).execute()
 				val bytes = resp.content.use { it.readBytes() }
-				Image.makeFromEncoded(bytes).toComposeImageBitmap()
+				val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
+				image
 			} catch (exception: Exception) {
 				null
 			}

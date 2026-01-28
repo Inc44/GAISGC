@@ -80,7 +80,7 @@ fun ApplicationLayout() {
 					onTrash = { scope.launch { DriveManager.trash(State.selectedIds.toList()) } },
 				)
 				if (
-					State.selectedDocument != null ||
+					State.selectedDocument.isNotEmpty() ||
 						State.selectedImage != null ||
 						State.selectedPdf != null
 				) {
@@ -202,12 +202,12 @@ private fun PreviewPane(modifier: Modifier) {
 				contentDescription = "Preview pane",
 				modifier = Modifier.fillMaxSize(),
 			)
-		} else if (document != null) {
+		} else if (document.isNotEmpty()) {
 			SelectionContainer {
 				LazyColumn(modifier = Modifier.fillMaxSize()) {
-					item {
+					items(document) { line ->
 						Text(
-							text = document,
+							text = line,
 							modifier = Modifier.fillMaxWidth(),
 							fontFamily = FontFamily.Monospace,
 						)
@@ -322,13 +322,14 @@ private fun UnlinkedList() {
 				onClick = {
 					scope.launch {
 						State.previewId = item.id
-						State.selectedDocument = null
+						State.selectedDocument.clear()
 						State.selectedImage = null
 						State.selectedPdf?.close()
 						State.selectedPdf = null
 						val lowercaseMimeType = item.mimeType.lowercase()
 						if (State.isDocument(lowercaseMimeType)) {
-							State.selectedDocument = DriveManager.getDocumentById(item.id)
+							val lines = DriveManager.getDocumentById(item.id)
+							if (lines != null) State.selectedDocument.addAll(lines)
 						} else if (State.isPhoto(lowercaseMimeType)) {
 							State.selectedImage = DriveManager.getImageById(item.id)
 						} else if (State.isPdf(lowercaseMimeType)) {
@@ -336,7 +337,8 @@ private fun UnlinkedList() {
 						} else if (State.isVideo(lowercaseMimeType)) {
 							State.selectedImage = DriveManager.getVideoById(item.id)
 						} else if (State.isOther(lowercaseMimeType)) {
-							State.selectedDocument = DriveManager.getDocumentById(item.id)
+							val lines = DriveManager.getDocumentById(item.id)
+							if (lines != null) State.selectedDocument.addAll(lines)
 						}
 					}
 				},
