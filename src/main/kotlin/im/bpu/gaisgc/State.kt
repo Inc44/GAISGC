@@ -95,6 +95,7 @@ object State {
 	val selectedIds = mutableStateListOf<String>()
 	var isShiftPressed by mutableStateOf(false)
 	var lastSelectedId by mutableStateOf<String?>(null)
+	var previewId by mutableStateOf<String?>(null)
 	private val shiftRangeIds = mutableListOf<String>()
 
 	init {
@@ -209,6 +210,7 @@ object State {
 	fun clearSelection() {
 		selectedIds.clear()
 		lastSelectedId = null
+		previewId = null
 		shiftRangeIds.clear()
 		selectedDocument = null
 		selectedImage = null

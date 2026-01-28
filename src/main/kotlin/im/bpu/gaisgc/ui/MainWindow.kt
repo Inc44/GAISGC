@@ -1,6 +1,7 @@
 package im.bpu.gaisgc.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
@@ -42,6 +44,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -292,6 +296,7 @@ private fun UnlinkedList() {
 				item = item,
 				onClick = {
 					scope.launch {
+						State.previewId = item.id
 						State.selectedDocument = null
 						State.selectedImage = null
 						State.selectedPdf?.close()
@@ -315,6 +320,7 @@ private fun UnlinkedList() {
 				onCheckedChange = {
 					State.toggleSelection(item.id, filteredUnlinkedItems.map { it.id })
 				},
+				isOpened = item.id == State.previewId,
 			)
 		}
 	}
@@ -328,11 +334,19 @@ private fun ItemRow(
 	hasCheckbox: Boolean = false,
 	isChecked: Boolean = false,
 	onCheckedChange: ((Boolean) -> Unit)? = null,
+	isOpened: Boolean = false,
 ) {
 	val color =
 		if (item.isNotFound) MaterialTheme.colorScheme.error
 		else MaterialTheme.colorScheme.onSurface
-	val modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+	val modifier =
+		Modifier.fillMaxWidth()
+			.clip(RoundedCornerShape(8.dp))
+			.background(
+				if (isOpened) MaterialTheme.colorScheme.primary.copy(alpha = 0.128f)
+				else Color.Transparent
+			)
+			.let { if (onClick != null) it.clickable(onClick = onClick) else it }
 	Row(
 		modifier =
 			modifier.padding(start = (depth * 16).dp, top = 4.dp, bottom = 4.dp).fillMaxWidth(),
