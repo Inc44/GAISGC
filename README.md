@@ -60,6 +60,27 @@ Or
 gradle run
 ```
 
+##### Important Links
+
+- [FFmpeg](https://www.gyan.dev/ffmpeg/builds) - Media
+
+##### System Requirements
+
+Ensure these binaries are in your system's PATH:
+
+- `ffmpeg.exe` - Version 8.0.1 tested
+
+##### Adding Binaries to System Path
+
+1. Download the necessary binaries.
+2. Include them in your system's PATH, e.g., `C:\Windows\`.
+
+Check their presence:
+
+```bash
+ffmpeg -version
+```
+
 ## 🧾 Configuration
 
 - Create `GAISGC` project in [Google Cloud console](https://console.cloud.google.com)
@@ -67,6 +88,12 @@ gradle run
 - Create [OAuth 2.0 Client ID](https://console.cloud.google.com/auth/clients) (Application type* `Desktop App`)
 - Download `credentials.json` to `path/to/GAISGC`
 - Add [Test user](https://console.cloud.google.com/auth/audience)
+
+## 🙏 Thanks
+
+Creators of:
+
+- [FFmpeg](https://www.gyan.dev/ffmpeg/builds/) - Media processor
 
 ## 🤝 Contribution
 

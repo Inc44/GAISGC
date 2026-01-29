@@ -20,9 +20,11 @@ import com.google.api.services.drive.model.File as DriveFile
 import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.PdfDocument
 import im.bpu.gaisgc.State
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStreamReader
+import javax.imageio.ImageIO
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -285,7 +287,7 @@ object DriveManager {
 			}
 		}
 
-	suspend fun getVideoById(id: String): ImageBitmap? =
+	suspend fun getVideoById(id: String, size: Long): ImageBitmap? =
 		withContext(Dispatchers.IO) {
 			try {
 				val service = getService()
@@ -293,12 +295,93 @@ object DriveManager {
 				val link = file.thumbnailLink ?: return@withContext null
 				val resp = service.requestFactory.buildGetRequest(GenericUrl(link)).execute()
 				val bytes = resp.content.use { it.readBytes() }
+				if (size < 25 * 1024 * 1024 && isVideoThumbnailBlack(bytes)) {
+					try {
+						val baos = ByteArrayOutputStream()
+						service.files().get(id).executeMediaAndDownloadTo(baos)
+						val bytes = baos.toByteArray()
+						val videoFile = File.createTempFile("gaisgc", ".mkv")
+						videoFile.writeBytes(bytes)
+						val imageFile = File.createTempFile("gaisgc", ".png")
+						val ffmpegProcess =
+							ProcessBuilder("ffmpeg", "-i", videoFile.absolutePath)
+								.redirectErrorStream(true)
+								.start()
+						val ffmpegProcessIS = ffmpegProcess.inputStream
+						val reader = ffmpegProcessIS.reader()
+						val text = reader.readText()
+						ffmpegProcess.waitFor()
+						val regex = Regex("Duration: (\\d+):(\\d+):(\\d+)\\.(\\d+)")
+						val match = regex.find(text)
+						if (match != null) {
+							val (hours, minutes, seconds, centiseconds) = match.destructured
+							val totalSeconds =
+								hours.toLong() * 3600 +
+									minutes.toLong() * 60 +
+									seconds.toLong() +
+									centiseconds.toDouble() / 100
+							val middle = totalSeconds / 2
+							ProcessBuilder(
+									"ffmpeg",
+									"-ss",
+									middle.toString(),
+									"-i",
+									videoFile.absolutePath,
+									"-frames:v",
+									"1",
+									"-y",
+									imageFile.absolutePath,
+								)
+								.start()
+								.waitFor()
+							if (imageFile.exists() && imageFile.length() > 0) {
+								val bytes = imageFile.readBytes()
+								videoFile.delete()
+								imageFile.delete()
+								val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
+								return@withContext image
+							}
+						}
+						videoFile.delete()
+						imageFile.delete()
+					} catch (exception: Exception) {}
+				}
 				val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
 				image
 			} catch (exception: Exception) {
 				null
 			}
 		}
+
+	private fun srgb(channel: Double): Double {
+		return if (channel <= 0.04045) channel / 12.92 else Math.pow((channel + 0.055) / 1.055, 2.4)
+	}
+
+	private fun relativeLuminance(r: Double, g: Double, b: Double): Double {
+		return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b)
+	}
+
+	private fun isVideoThumbnailBlack(bytes: ByteArray): Boolean {
+		return try {
+			val bais = ByteArrayInputStream(bytes)
+			val img = ImageIO.read(bais) ?: return false
+			val width = img.width
+			val height = img.height
+			var totalLuminance = 0.0
+			val pixelCount = width * height
+			val rgbPixels = img.getRGB(0, 0, width, height, null, 0, width)
+			for (rgbPixel in rgbPixels) {
+				val r = ((rgbPixel shr 16) and 0xFF) / 255.0
+				val g = ((rgbPixel shr 8) and 0xFF) / 255.0
+				val b = (rgbPixel and 0xFF) / 255.0
+				val luminance = relativeLuminance(r, g, b)
+				totalLuminance += luminance
+			}
+			(totalLuminance / pixelCount) < 0.128
+		} catch (exception: Exception) {
+			false
+		}
+	}
 
 	suspend fun trash(ids: List<String>) =
 		withContext(Dispatchers.IO) {

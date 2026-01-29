@@ -376,7 +376,7 @@ private fun UnlinkedList() {
 						} else if (State.isPdf(lowercaseMimeType)) {
 							State.selectedPdf = DriveManager.getPdfById(item.id, scope)
 						} else if (State.isVideo(lowercaseMimeType)) {
-							State.selectedImage = DriveManager.getVideoById(item.id)
+							State.selectedImage = DriveManager.getVideoById(item.id, item.size)
 						} else if (State.isOther(lowercaseMimeType)) {
 							val lines = DriveManager.getDocumentById(item.id)
 							if (lines != null) State.selectedDocument.addAll(lines)
