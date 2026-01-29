@@ -20,11 +20,11 @@ import com.google.api.services.drive.model.File as DriveFile
 import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.PdfDocument
 import im.bpu.gaisgc.State
-import java.io.ByteArrayInputStream
+import im.bpu.gaisgc.manager.MediaManager.getVideoMiddleFrame
+import im.bpu.gaisgc.manager.MediaManager.isVideoThumbnailBlack
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStreamReader
-import javax.imageio.ImageIO
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -64,7 +64,6 @@ object DriveManager {
 	private const val PORT = 8888
 	private const val TIMEOUT_MS = 0
 	private const val MAX_VIDEO_SIZE = 25 * 1024 * 1024
-	private const val LUMINANCE_THRESHOLD = 0.128
 	private val JSON_FACTORY = GsonFactory.getDefaultInstance()
 	private val SCOPES = listOf(DriveScopes.DRIVE)
 	private var driveService: Drive? = null
@@ -305,7 +304,7 @@ object DriveManager {
 			}
 		}
 
-	private suspend fun downloadFileBytes(service: Drive, id: String): ByteArray {
+	suspend fun downloadFileBytes(service: Drive, id: String): ByteArray {
 		val baos = ByteArrayOutputStream()
 		service.files().get(id).executeMediaAndDownloadTo(baos)
 		val bytes = baos.toByteArray()
@@ -316,92 +315,6 @@ object DriveManager {
 		val resp = service.requestFactory.buildGetRequest(GenericUrl(link)).execute()
 		val bytes = resp.content.use { it.readBytes() }
 		return bytes
-	}
-
-	private suspend fun getVideoMiddleFrame(service: Drive, id: String): ImageBitmap? {
-		return try {
-			val bytes = downloadFileBytes(service, id)
-			val videoFile = File.createTempFile("gaisgc", ".mkv")
-			videoFile.writeBytes(bytes)
-			val imageFile = File.createTempFile("gaisgc", ".png")
-			val duration = getVideoDuration(videoFile)
-			if (duration != null) {
-				extractVideoFrame(videoFile, duration / 2, imageFile)
-				if (imageFile.exists() && imageFile.length() > 0) {
-					val bytes = imageFile.readBytes()
-					videoFile.delete()
-					imageFile.delete()
-					val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
-					return image
-				}
-			}
-			videoFile.delete()
-			imageFile.delete()
-			null
-		} catch (exception: Exception) {
-			null
-		}
-	}
-
-	private fun getVideoDuration(videoFile: File): Double? {
-		val ffmpegProcess =
-			ProcessBuilder("ffmpeg", "-i", videoFile.absolutePath).redirectErrorStream(true).start()
-		val ffmpegProcessIS = ffmpegProcess.inputStream
-		val reader = ffmpegProcessIS.reader()
-		val text = reader.readText()
-		ffmpegProcess.waitFor()
-		val regex = Regex("Duration: (\\d+):(\\d+):(\\d+)\\.(\\d+)")
-		val match = regex.find(text) ?: return null
-		val (hours, minutes, seconds, centiseconds) = match.destructured
-		return hours.toLong() * 3600 +
-			minutes.toLong() * 60 +
-			seconds.toLong() +
-			centiseconds.toDouble() / 100
-	}
-
-	private fun extractVideoFrame(videoFile: File, time: Double, imageFile: File) {
-		ProcessBuilder(
-				"ffmpeg",
-				"-ss",
-				time.toString(),
-				"-i",
-				videoFile.absolutePath,
-				"-frames:v",
-				"1",
-				"-y",
-				imageFile.absolutePath,
-			)
-			.start()
-			.waitFor()
-	}
-
-	private fun srgb(channel: Double): Double {
-		return if (channel <= 0.04045) channel / 12.92 else Math.pow((channel + 0.055) / 1.055, 2.4)
-	}
-
-	private fun relativeLuminance(r: Double, g: Double, b: Double): Double {
-		return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b)
-	}
-
-	private fun isVideoThumbnailBlack(bytes: ByteArray): Boolean {
-		return try {
-			val bais = ByteArrayInputStream(bytes)
-			val img = ImageIO.read(bais) ?: return false
-			val width = img.width
-			val height = img.height
-			var luminance = 0.0
-			val pixelCount = width * height
-			val rgbPixels = img.getRGB(0, 0, width, height, null, 0, width)
-			for (rgbPixel in rgbPixels) {
-				val r = ((rgbPixel shr 16) and 0xFF) / 255.0
-				val g = ((rgbPixel shr 8) and 0xFF) / 255.0
-				val b = (rgbPixel and 0xFF) / 255.0
-				luminance += relativeLuminance(r, g, b)
-			}
-			(luminance / pixelCount) < LUMINANCE_THRESHOLD
-		} catch (exception: Exception) {
-			false
-		}
 	}
 
 	suspend fun trash(ids: List<String>) =
