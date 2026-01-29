@@ -63,6 +63,8 @@ object DriveManager {
 	private const val USER_ID = "user"
 	private const val PORT = 8888
 	private const val TIMEOUT_MS = 0
+	private const val MAX_VIDEO_SIZE = 25 * 1024 * 1024
+	private const val LUMINANCE_THRESHOLD = 0.128
 	private val JSON_FACTORY = GsonFactory.getDefaultInstance()
 	private val SCOPES = listOf(DriveScopes.DRIVE)
 	private var driveService: Drive? = null
@@ -179,14 +181,10 @@ object DriveManager {
 	}
 
 	suspend fun fetch() = coroutineScope {
+		withContext(Dispatchers.Main) { State.clearSelection() }
 		withContext(Dispatchers.Main) {
 			State.items.clear()
 			State.unlinkedItems.clear()
-			State.selectedDocument.clear()
-			State.selectedImage = null
-			State.selectedPdf?.close()
-			State.selectedPdf = null
-			State.selectedIds.clear()
 		}
 		val service = getService()
 		val chatFiles = getFilesByMime(service, MIME_PROMPT)
@@ -197,10 +195,7 @@ object DriveManager {
 			chatFiles.indices.map { i ->
 				async(Dispatchers.IO) {
 					val file = chatFiles[i]
-					val baos = ByteArrayOutputStream()
-					service.files().get(file.id).executeMediaAndDownloadTo(baos)
-					val content = baos.toString("UTF-8")
-					val subItemIds = extractSubItemIds(content)
+					val subItemIds = getChatSubItems(service, file.id)
 					val subItems =
 						subItemIds
 							.map { id ->
@@ -239,6 +234,14 @@ object DriveManager {
 		}
 	}
 
+	private fun getChatSubItems(service: Drive, id: String): List<String> {
+		val baos = ByteArrayOutputStream()
+		service.files().get(id).executeMediaAndDownloadTo(baos)
+		val content = baos.toString("UTF-8")
+		val subItemIds = extractSubItemIds(content)
+		return subItemIds
+	}
+
 	suspend fun getDocumentById(id: String): List<String>? =
 		withContext(Dispatchers.IO) {
 			try {
@@ -259,9 +262,7 @@ object DriveManager {
 		withContext(Dispatchers.IO) {
 			try {
 				val service = getService()
-				val baos = ByteArrayOutputStream()
-				service.files().get(id).executeMediaAndDownloadTo(baos)
-				val bytes = baos.toByteArray()
+				val bytes = downloadFileBytes(service, id)
 				val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
 				image
 			} catch (exception: Exception) {
@@ -273,9 +274,7 @@ object DriveManager {
 		withContext(Dispatchers.IO) {
 			try {
 				val service = getService()
-				val baos = ByteArrayOutputStream()
-				service.files().get(id).executeMediaAndDownloadTo(baos)
-				val bytes = baos.toByteArray()
+				val bytes = downloadFileBytes(service, id)
 				val document = Loader.loadPDF(bytes)
 				val renderer = PDFRenderer(document)
 				val firstPage = renderer.renderImageWithDPI(0, 300f).toComposeImageBitmap()
@@ -293,65 +292,88 @@ object DriveManager {
 				val service = getService()
 				val file = service.files().get(id).setFields("thumbnailLink").execute()
 				val link = file.thumbnailLink ?: return@withContext null
-				val resp = service.requestFactory.buildGetRequest(GenericUrl(link)).execute()
-				val bytes = resp.content.use { it.readBytes() }
-				if (size < 25 * 1024 * 1024 && isVideoThumbnailBlack(bytes)) {
-					try {
-						val baos = ByteArrayOutputStream()
-						service.files().get(id).executeMediaAndDownloadTo(baos)
-						val bytes = baos.toByteArray()
-						val videoFile = File.createTempFile("gaisgc", ".mkv")
-						videoFile.writeBytes(bytes)
-						val imageFile = File.createTempFile("gaisgc", ".png")
-						val ffmpegProcess =
-							ProcessBuilder("ffmpeg", "-i", videoFile.absolutePath)
-								.redirectErrorStream(true)
-								.start()
-						val ffmpegProcessIS = ffmpegProcess.inputStream
-						val reader = ffmpegProcessIS.reader()
-						val text = reader.readText()
-						ffmpegProcess.waitFor()
-						val regex = Regex("Duration: (\\d+):(\\d+):(\\d+)\\.(\\d+)")
-						val match = regex.find(text)
-						if (match != null) {
-							val (hours, minutes, seconds, centiseconds) = match.destructured
-							val totalSeconds =
-								hours.toLong() * 3600 +
-									minutes.toLong() * 60 +
-									seconds.toLong() +
-									centiseconds.toDouble() / 100
-							val middle = totalSeconds / 2
-							ProcessBuilder(
-									"ffmpeg",
-									"-ss",
-									middle.toString(),
-									"-i",
-									videoFile.absolutePath,
-									"-frames:v",
-									"1",
-									"-y",
-									imageFile.absolutePath,
-								)
-								.start()
-								.waitFor()
-							if (imageFile.exists() && imageFile.length() > 0) {
-								val bytes = imageFile.readBytes()
-								videoFile.delete()
-								imageFile.delete()
-								val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
-								return@withContext image
-							}
-						}
-						videoFile.delete()
-						imageFile.delete()
-					} catch (exception: Exception) {}
+				val bytes = downloadLinkBytes(service, link)
+				if (size < MAX_VIDEO_SIZE && isVideoThumbnailBlack(bytes)) {
+					val image = getVideoMiddleFrame(service, id)
+					image
+				} else {
+					val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
+					image
 				}
-				val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
-				image
 			} catch (exception: Exception) {
 				null
 			}
 		}
+
+	private suspend fun downloadFileBytes(service: Drive, id: String): ByteArray {
+		val baos = ByteArrayOutputStream()
+		service.files().get(id).executeMediaAndDownloadTo(baos)
+		val bytes = baos.toByteArray()
+		return bytes
+	}
+
+	private suspend fun downloadLinkBytes(service: Drive, link: String): ByteArray {
+		val resp = service.requestFactory.buildGetRequest(GenericUrl(link)).execute()
+		val bytes = resp.content.use { it.readBytes() }
+		return bytes
+	}
+
+	private suspend fun getVideoMiddleFrame(service: Drive, id: String): ImageBitmap? {
+		return try {
+			val bytes = downloadFileBytes(service, id)
+			val videoFile = File.createTempFile("gaisgc", ".mkv")
+			videoFile.writeBytes(bytes)
+			val imageFile = File.createTempFile("gaisgc", ".png")
+			val duration = getVideoDuration(videoFile)
+			if (duration != null) {
+				extractVideoFrame(videoFile, duration / 2, imageFile)
+				if (imageFile.exists() && imageFile.length() > 0) {
+					val bytes = imageFile.readBytes()
+					videoFile.delete()
+					imageFile.delete()
+					val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
+					return image
+				}
+			}
+			videoFile.delete()
+			imageFile.delete()
+			null
+		} catch (exception: Exception) {
+			null
+		}
+	}
+
+	private fun getVideoDuration(videoFile: File): Double? {
+		val ffmpegProcess =
+			ProcessBuilder("ffmpeg", "-i", videoFile.absolutePath).redirectErrorStream(true).start()
+		val ffmpegProcessIS = ffmpegProcess.inputStream
+		val reader = ffmpegProcessIS.reader()
+		val text = reader.readText()
+		ffmpegProcess.waitFor()
+		val regex = Regex("Duration: (\\d+):(\\d+):(\\d+)\\.(\\d+)")
+		val match = regex.find(text) ?: return null
+		val (hours, minutes, seconds, centiseconds) = match.destructured
+		return hours.toLong() * 3600 +
+			minutes.toLong() * 60 +
+			seconds.toLong() +
+			centiseconds.toDouble() / 100
+	}
+
+	private fun extractVideoFrame(videoFile: File, time: Double, imageFile: File) {
+		ProcessBuilder(
+				"ffmpeg",
+				"-ss",
+				time.toString(),
+				"-i",
+				videoFile.absolutePath,
+				"-frames:v",
+				"1",
+				"-y",
+				imageFile.absolutePath,
+			)
+			.start()
+			.waitFor()
+	}
 
 	private fun srgb(channel: Double): Double {
 		return if (channel <= 0.04045) channel / 12.92 else Math.pow((channel + 0.055) / 1.055, 2.4)
@@ -367,17 +389,16 @@ object DriveManager {
 			val img = ImageIO.read(bais) ?: return false
 			val width = img.width
 			val height = img.height
-			var totalLuminance = 0.0
+			var luminance = 0.0
 			val pixelCount = width * height
 			val rgbPixels = img.getRGB(0, 0, width, height, null, 0, width)
 			for (rgbPixel in rgbPixels) {
 				val r = ((rgbPixel shr 16) and 0xFF) / 255.0
 				val g = ((rgbPixel shr 8) and 0xFF) / 255.0
 				val b = (rgbPixel and 0xFF) / 255.0
-				val luminance = relativeLuminance(r, g, b)
-				totalLuminance += luminance
+				luminance += relativeLuminance(r, g, b)
 			}
-			(totalLuminance / pixelCount) < 0.128
+			(luminance / pixelCount) < LUMINANCE_THRESHOLD
 		} catch (exception: Exception) {
 			false
 		}
@@ -387,7 +408,7 @@ object DriveManager {
 		withContext(Dispatchers.IO) {
 			val service = getService()
 			coroutineScope {
-				ids.map { id ->
+				ids.forEach { id ->
 					launch {
 						try {
 							val file = DriveFile()
@@ -407,4 +428,28 @@ object DriveManager {
 				}
 			}
 		}
+
+	suspend fun loadPreview(item: Item, scope: CoroutineScope) {
+		State.previewId = item.id
+		State.selectedDocument.clear()
+		State.selectedImage = null
+		State.selectedPdf?.close()
+		State.selectedPdf = null
+		val lowercaseMimeType = item.mimeType.lowercase()
+		when {
+			State.isDocument(lowercaseMimeType) || State.isOther(lowercaseMimeType) -> {
+				val lines = getDocumentById(item.id)
+				if (lines != null) State.selectedDocument.addAll(lines)
+			}
+			State.isPhoto(lowercaseMimeType) -> {
+				State.selectedImage = getImageById(item.id)
+			}
+			State.isPdf(lowercaseMimeType) -> {
+				State.selectedPdf = getPdfById(item.id, scope)
+			}
+			State.isVideo(lowercaseMimeType) -> {
+				State.selectedImage = getVideoById(item.id, item.size)
+			}
+		}
+	}
 }

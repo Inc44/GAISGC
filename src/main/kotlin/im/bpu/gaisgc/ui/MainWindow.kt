@@ -117,10 +117,11 @@ private fun handleKeyEvent(event: KeyEvent, scope: CoroutineScope): Boolean {
 
 @Composable
 private fun NavigationSideBar() {
+	val interactionSource = remember { MutableInteractionSource() }
 	NavigationRail(
 		modifier =
 			Modifier.width(80.dp).fillMaxHeight().clickable(
-				interactionSource = remember { MutableInteractionSource() },
+				interactionSource = interactionSource,
 				indication = null,
 			) {
 				State.clearSelection()
@@ -150,12 +151,10 @@ private fun NavigationSideBar() {
 @Composable
 private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit, onTrash: () -> Unit) {
 	var showFilters by remember { mutableStateOf(false) }
+	val interactionSource = remember { MutableInteractionSource() }
 	Column(
 		modifier =
-			modifier.clickable(
-				interactionSource = remember { MutableInteractionSource() },
-				indication = null,
-			) {
+			modifier.clickable(interactionSource = interactionSource, indication = null) {
 				State.clearSelection()
 			}
 	) {
@@ -170,7 +169,7 @@ private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit, onTrash: () -
 		Box(
 			modifier =
 				Modifier.weight(1f).clickable(
-					interactionSource = remember { MutableInteractionSource() },
+					interactionSource = interactionSource,
 					indication = null,
 				) {
 					State.clearSelection()
@@ -190,34 +189,38 @@ private fun PreviewPane(modifier: Modifier) {
 	val image = State.selectedImage
 	val pdf = State.selectedPdf
 	Column(modifier = modifier.fillMaxHeight().padding(16.dp)) {
-		if (pdf != null) {
-			LazyColumn(
-				modifier = Modifier.fillMaxSize(),
-				verticalArrangement = Arrangement.spacedBy(16.dp),
-			) {
-				items(pdf.pages) { bitmap ->
-					Image(
-						bitmap = bitmap,
-						contentDescription = "Preview pane",
-						modifier = Modifier.fillMaxWidth(),
-					)
+		when {
+			pdf != null -> {
+				LazyColumn(
+					modifier = Modifier.fillMaxSize(),
+					verticalArrangement = Arrangement.spacedBy(16.dp),
+				) {
+					items(pdf.pages) { bitmap ->
+						Image(
+							bitmap = bitmap,
+							contentDescription = "PDF Preview Pane",
+							modifier = Modifier.fillMaxWidth(),
+						)
+					}
 				}
 			}
-		} else if (image != null) {
-			Image(
-				bitmap = image,
-				contentDescription = "Preview pane",
-				modifier = Modifier.fillMaxSize(),
-			)
-		} else if (document.isNotEmpty()) {
-			SelectionContainer {
-				LazyColumn(modifier = Modifier.fillMaxSize()) {
-					items(document) { line ->
-						Text(
-							text = line,
-							modifier = Modifier.fillMaxWidth(),
-							fontFamily = FontFamily.Monospace,
-						)
+			image != null -> {
+				Image(
+					bitmap = image,
+					contentDescription = "Image Preview Pane",
+					modifier = Modifier.fillMaxSize(),
+				)
+			}
+			document.isNotEmpty() -> {
+				SelectionContainer {
+					LazyColumn(modifier = Modifier.fillMaxSize()) {
+						items(document) { line ->
+							Text(
+								text = line,
+								modifier = Modifier.fillMaxWidth(),
+								fontFamily = FontFamily.Monospace,
+							)
+						}
 					}
 				}
 			}
@@ -229,62 +232,67 @@ private fun PreviewPane(modifier: Modifier) {
 private fun Header(onRefresh: () -> Unit, onToggleFilters: () -> Unit, onTrash: () -> Unit) {
 	BoxWithConstraints(modifier = Modifier.padding(16.dp)) {
 		if (State.screen == Screen.UNLINKED && maxWidth < 480.dp) {
-			Column {
-				PathInput(modifier = Modifier.fillMaxWidth())
-				Spacer(Modifier.height(8.dp))
-				Row(
-					modifier = Modifier.fillMaxWidth(),
-					horizontalArrangement = Arrangement.End,
-					verticalAlignment = Alignment.CenterVertically,
-				) {
-					IconButton(onClick = onToggleFilters) {
-						Icon(Icons.Filled.FilterList, contentDescription = "Filters")
-					}
-					Spacer(Modifier.width(8.dp))
-					Button(onClick = onRefresh) { Text("Refresh") }
-					if (State.selectedIds.isNotEmpty()) {
-						Spacer(Modifier.width(8.dp))
-						Button(
-							onClick = onTrash,
-							colors =
-								ButtonDefaults.buttonColors(
-									containerColor = MaterialTheme.colorScheme.error
-								),
-						) {
-							Text("Trash (${State.selectedIds.size})")
-						}
-					}
-				}
-			}
+			CompactHeader(onRefresh, onToggleFilters, onTrash)
 		} else {
-			Row(
-				modifier = Modifier.heightIn(min = 64.dp),
-				verticalAlignment = Alignment.CenterVertically,
-			) {
-				if (State.screen == Screen.UNLINKED) {
-					PathInput(modifier = Modifier.weight(1f))
-					Spacer(Modifier.width(8.dp))
-					IconButton(onClick = onToggleFilters) {
-						Icon(Icons.Filled.FilterList, contentDescription = "Filters")
-					}
-					Spacer(Modifier.width(8.dp))
-				} else {
-					Title(modifier = Modifier.weight(1f))
-				}
-				Button(onClick = onRefresh) { Text("Refresh") }
-				if (State.selectedIds.isNotEmpty()) {
-					Spacer(Modifier.width(8.dp))
-					Button(
-						onClick = onTrash,
-						colors =
-							ButtonDefaults.buttonColors(
-								containerColor = MaterialTheme.colorScheme.error
-							),
-					) {
-						Text("Trash (${State.selectedIds.size})")
-					}
-				}
-			}
+			StandardHeader(onRefresh, onToggleFilters, onTrash)
+		}
+	}
+}
+
+@Composable
+private fun CompactHeader(onRefresh: () -> Unit, onToggleFilters: () -> Unit, onTrash: () -> Unit) {
+	Column {
+		PathInput(modifier = Modifier.fillMaxWidth())
+		Spacer(Modifier.height(8.dp))
+		Row(
+			modifier = Modifier.fillMaxWidth(),
+			horizontalArrangement = Arrangement.End,
+			verticalAlignment = Alignment.CenterVertically,
+		) {
+			ActionButtons(onRefresh, onToggleFilters, onTrash, showFilter = true)
+		}
+	}
+}
+
+@Composable
+private fun StandardHeader(
+	onRefresh: () -> Unit,
+	onToggleFilters: () -> Unit,
+	onTrash: () -> Unit,
+) {
+	Row(modifier = Modifier.heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
+		if (State.screen == Screen.UNLINKED) {
+			PathInput(modifier = Modifier.weight(1f))
+			Spacer(Modifier.width(8.dp))
+			ActionButtons(onRefresh, onToggleFilters, onTrash, showFilter = true)
+		} else {
+			Title(modifier = Modifier.weight(1f))
+			ActionButtons(onRefresh, onToggleFilters, onTrash, showFilter = false)
+		}
+	}
+}
+
+@Composable
+private fun ActionButtons(
+	onRefresh: () -> Unit,
+	onToggleFilters: () -> Unit,
+	onTrash: () -> Unit,
+	showFilter: Boolean,
+) {
+	if (showFilter) {
+		IconButton(onClick = onToggleFilters) {
+			Icon(Icons.Filled.FilterList, contentDescription = "Filters")
+		}
+		Spacer(Modifier.width(8.dp))
+	}
+	Button(onClick = onRefresh) { Text("Refresh") }
+	if (State.selectedIds.isNotEmpty()) {
+		Spacer(Modifier.width(8.dp))
+		Button(
+			onClick = onTrash,
+			colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+		) {
+			Text("Trash (${State.selectedIds.size})")
 		}
 	}
 }
@@ -360,29 +368,7 @@ private fun UnlinkedList() {
 		items(filteredUnlinkedItems) { item ->
 			ItemRow(
 				item = item,
-				onClick = {
-					scope.launch {
-						State.previewId = item.id
-						State.selectedDocument.clear()
-						State.selectedImage = null
-						State.selectedPdf?.close()
-						State.selectedPdf = null
-						val lowercaseMimeType = item.mimeType.lowercase()
-						if (State.isDocument(lowercaseMimeType)) {
-							val lines = DriveManager.getDocumentById(item.id)
-							if (lines != null) State.selectedDocument.addAll(lines)
-						} else if (State.isPhoto(lowercaseMimeType)) {
-							State.selectedImage = DriveManager.getImageById(item.id)
-						} else if (State.isPdf(lowercaseMimeType)) {
-							State.selectedPdf = DriveManager.getPdfById(item.id, scope)
-						} else if (State.isVideo(lowercaseMimeType)) {
-							State.selectedImage = DriveManager.getVideoById(item.id, item.size)
-						} else if (State.isOther(lowercaseMimeType)) {
-							val lines = DriveManager.getDocumentById(item.id)
-							if (lines != null) State.selectedDocument.addAll(lines)
-						}
-					}
-				},
+				onClick = { scope.launch { DriveManager.loadPreview(item, scope) } },
 				hasCheckbox = true,
 				isChecked = item.id in State.selectedIds,
 				onCheckedChange = {
@@ -410,14 +396,12 @@ private fun ItemRow(
 			item.isNotFound -> MaterialTheme.colorScheme.error
 			else -> MaterialTheme.colorScheme.onSurface
 		}
+	val background =
+		if (isOpened) MaterialTheme.colorScheme.primary.copy(alpha = 0.128f) else Color.Transparent
 	val modifier =
-		Modifier.fillMaxWidth()
-			.clip(RoundedCornerShape(8.dp))
-			.background(
-				if (isOpened) MaterialTheme.colorScheme.primary.copy(alpha = 0.128f)
-				else Color.Transparent
-			)
-			.let { if (onClick != null) it.clickable(onClick = onClick) else it }
+		Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(background).let {
+			if (onClick != null) it.clickable(onClick = onClick) else it
+		}
 	Row(
 		modifier =
 			modifier.padding(start = (depth * 16).dp, top = 4.dp, bottom = 4.dp).fillMaxWidth(),

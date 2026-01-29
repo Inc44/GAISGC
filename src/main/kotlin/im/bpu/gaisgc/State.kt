@@ -83,6 +83,7 @@ object State {
 	private const val DEFAULT_GAIS_PATH = "Google AI Studio"
 	private val properties = Properties()
 	private val configFile = File(CONFIG_FILE_PATH)
+	private val shiftRangeIds = mutableListOf<String>()
 	var screen by mutableStateOf(Screen.MAIN)
 	var gaisPath by mutableStateOf(DEFAULT_GAIS_PATH)
 	val items = mutableStateListOf<Item>()
@@ -97,7 +98,6 @@ object State {
 	var isShiftPressed by mutableStateOf(false)
 	var lastSelectedId by mutableStateOf<String?>(null)
 	var previewId by mutableStateOf<String?>(null)
-	private val shiftRangeIds = mutableListOf<String>()
 
 	init {
 		if (configFile.exists()) {
