@@ -12,6 +12,7 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.http.GenericUrl
 import com.google.api.client.http.HttpTransport
+import com.google.api.client.json.GenericJson
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.Key
 import com.google.api.client.util.store.FileDataStoreFactory
@@ -38,21 +39,21 @@ import org.apache.pdfbox.Loader
 import org.apache.pdfbox.rendering.PDFRenderer
 import org.jetbrains.skia.Image
 
-class Chat {
+class Chat : GenericJson() {
 	@Key("chunkedPrompt") var chunkedPrompt: ChunkedPrompt? = null
 }
 
-class ChunkedPrompt {
+class ChunkedPrompt : GenericJson() {
 	@Key("chunks") var chunks: List<Chunk>? = null
 }
 
-class Chunk {
+class Chunk : GenericJson() {
 	@Key("driveDocument") var driveDocument: DriveReference? = null
 	@Key("driveImage") var driveImage: DriveReference? = null
 	@Key("driveVideo") var driveVideo: DriveReference? = null
 }
 
-class DriveReference {
+class DriveReference : GenericJson() {
 	@Key("id") var id: String? = null
 }
 
