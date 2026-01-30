@@ -85,12 +85,15 @@ enum class Sort {
 object State {
 	private const val CONFIG_FILE_PATH = "config.properties"
 	private const val GAIS_PATH_PROPERTY = "gaisPath"
+	private const val DUPLICATES_PATH_PROPERTY = "duplicatesPath"
 	private const val DEFAULT_GAIS_PATH = "Google AI Studio"
+	private const val DEFAULT_DUPLICATES_PATH = DEFAULT_GAIS_PATH
 	private val properties = Properties()
 	private val configFile = File(CONFIG_FILE_PATH)
 	private val shiftRangeIds = mutableListOf<String>()
 	var screen by mutableStateOf(Screen.MAIN)
 	var gaisPath by mutableStateOf(DEFAULT_GAIS_PATH)
+	var duplicatesPath by mutableStateOf(DEFAULT_DUPLICATES_PATH)
 	val items = mutableStateListOf<Item>()
 	val unlinkedItems = mutableStateListOf<Item>()
 	val duplicateItems = mutableStateListOf<DuplicateMatch>()
@@ -109,12 +112,24 @@ object State {
 		if (configFile.exists()) {
 			configFile.inputStream().use { properties.load(it) }
 			gaisPath = properties.getProperty(GAIS_PATH_PROPERTY, DEFAULT_GAIS_PATH)
+			duplicatesPath =
+				properties.getProperty(DUPLICATES_PATH_PROPERTY, DEFAULT_DUPLICATES_PATH)
 		}
 	}
 
-	fun savePath(path: String) {
+	fun saveGaisPath(path: String) {
 		gaisPath = path
 		properties.setProperty(GAIS_PATH_PROPERTY, path)
+		saveProperties()
+	}
+
+	fun saveDuplicatesPath(path: String) {
+		duplicatesPath = path
+		properties.setProperty(DUPLICATES_PATH_PROPERTY, path)
+		saveProperties()
+	}
+
+	private fun saveProperties() {
 		configFile.outputStream().use { properties.store(it, null) }
 	}
 

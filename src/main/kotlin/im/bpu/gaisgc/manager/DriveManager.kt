@@ -224,27 +224,45 @@ object DriveManager {
 		val referencedItems = deferredSubItems.awaitAll().flatten()
 		val referencedItemIds = referencedItems.map { it.id }.toSet()
 		val chatIds = chatFiles.map { it.id }.toSet()
-		val gaisFolderId = getFolderId(service, State.gaisPath) ?: return@coroutineScope
-		val gaisFolderFiles = getFilesByParent(service, gaisFolderId)
-		val gaisFolderItems =
-			gaisFolderFiles.map {
-				Item(
-					createdTime = it.createdTime?.value ?: 0L,
-					fileExtension = it.fileExtension,
-					id = it.id,
-					mimeType = it.mimeType ?: "",
-					name = it.name,
-					sha256Checksum = it.sha256Checksum,
-					size = it.getSize() ?: 0L,
-				)
-			}
-		val orphanItems =
-			gaisFolderItems
-				.filter { it.id !in chatIds && it.id !in referencedItemIds }
-				.map { it.copy(isNotFound = true) }
-		withContext(Dispatchers.Main) { State.unlinkedItems.addAll(orphanItems) }
-		val duplicateItems = findDuplicates(State.items.toList(), gaisFolderItems)
-		withContext(Dispatchers.Main) { State.duplicateItems.addAll(duplicateItems) }
+		val gaisFolderId = getFolderId(service, State.gaisPath)
+		if (gaisFolderId != null) {
+			val gaisFolderFiles = getFilesByParent(service, gaisFolderId)
+			val gaisFolderItems =
+				gaisFolderFiles.map {
+					Item(
+						createdTime = it.createdTime?.value ?: 0L,
+						fileExtension = it.fileExtension,
+						id = it.id,
+						mimeType = it.mimeType ?: "",
+						name = it.name,
+						sha256Checksum = it.sha256Checksum,
+						size = it.getSize() ?: 0L,
+					)
+				}
+			val orphanItems =
+				gaisFolderItems
+					.filter { it.id !in chatIds && it.id !in referencedItemIds }
+					.map { it.copy(isNotFound = true) }
+			withContext(Dispatchers.Main) { State.unlinkedItems.addAll(orphanItems) }
+		}
+		val duplicatesFolderId = getFolderId(service, State.duplicatesPath)
+		if (duplicatesFolderId != null) {
+			val duplicatesFolderFiles = getFilesByParent(service, duplicatesFolderId)
+			val duplicatesFolderItems =
+				duplicatesFolderFiles.map {
+					Item(
+						createdTime = it.createdTime?.value ?: 0L,
+						fileExtension = it.fileExtension,
+						id = it.id,
+						mimeType = it.mimeType ?: "",
+						name = it.name,
+						sha256Checksum = it.sha256Checksum,
+						size = it.getSize() ?: 0L,
+					)
+				}
+			val duplicateItems = findDuplicates(State.items.toList(), duplicatesFolderItems)
+			withContext(Dispatchers.Main) { State.duplicateItems.addAll(duplicateItems) }
+		}
 	}
 
 	private fun findDuplicates(

@@ -275,7 +275,10 @@ private fun Header(
 	onRelink: () -> Unit,
 ) {
 	BoxWithConstraints(modifier = Modifier.padding(16.dp)) {
-		if (State.screen == Screen.UNLINKED && maxWidth < 480.dp) {
+		if (
+			(State.screen == Screen.UNLINKED || State.screen == Screen.RELINKER) &&
+				maxWidth < 480.dp
+		) {
 			CompactHeader(onRefresh, onToggleFilters, onTrash, onRelink)
 		} else {
 			StandardHeader(onRefresh, onToggleFilters, onTrash, onRelink)
@@ -291,7 +294,7 @@ private fun CompactHeader(
 	onRelink: () -> Unit,
 ) {
 	Column {
-		PathInput(modifier = Modifier.fillMaxWidth())
+		ScreenSpecificPathInput(modifier = Modifier.fillMaxWidth())
 		Spacer(Modifier.height(8.dp))
 		Row(
 			modifier = Modifier.fillMaxWidth(),
@@ -311,20 +314,37 @@ private fun StandardHeader(
 	onRelink: () -> Unit,
 ) {
 	Row(modifier = Modifier.heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
-		if (State.screen == Screen.UNLINKED) {
-			PathInput(modifier = Modifier.weight(1f))
+		if (State.screen == Screen.UNLINKED || State.screen == Screen.RELINKER) {
+			ScreenSpecificPathInput(modifier = Modifier.weight(1f))
 			Spacer(Modifier.width(8.dp))
 			ActionButtons(onRefresh, onToggleFilters, onTrash, onRelink, showFilter = true)
 		} else {
 			Title(modifier = Modifier.weight(1f))
-			ActionButtons(
-				onRefresh,
-				onToggleFilters,
-				onTrash,
-				onRelink,
-				showFilter = (State.screen == Screen.RELINKER),
+			ActionButtons(onRefresh, onToggleFilters, onTrash, onRelink, showFilter = false)
+		}
+	}
+}
+
+@Composable
+private fun ScreenSpecificPathInput(modifier: Modifier) {
+	when (State.screen) {
+		Screen.UNLINKED -> {
+			PathInput(
+				value = State.gaisPath,
+				onValueChange = { State.saveGaisPath(it) },
+				label = "Google AI Studio Path",
+				modifier = modifier,
 			)
 		}
+		Screen.RELINKER -> {
+			PathInput(
+				value = State.duplicatesPath,
+				onValueChange = { State.saveDuplicatesPath(it) },
+				label = "Duplicates Path",
+				modifier = modifier,
+			)
+		}
+		else -> {}
 	}
 }
 
@@ -403,11 +423,16 @@ private fun FilterPanel() {
 }
 
 @Composable
-private fun PathInput(modifier: Modifier) {
+private fun PathInput(
+	value: String,
+	onValueChange: (String) -> Unit,
+	label: String,
+	modifier: Modifier,
+) {
 	OutlinedTextField(
-		value = State.gaisPath,
-		onValueChange = { State.savePath(it) },
-		label = { Text("Google AI Studio Path") },
+		value = value,
+		onValueChange = onValueChange,
+		label = { Text(label) },
 		modifier = modifier,
 		singleLine = true,
 	)

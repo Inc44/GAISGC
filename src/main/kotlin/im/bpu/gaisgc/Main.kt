@@ -11,7 +11,7 @@ import java.awt.Dimension
 private const val APPLICATION_NAME = "GAISGC"
 private const val DEFAULT_WIDTH = 1200
 private const val DEFAULT_HEIGHT = 800
-private const val MIN_WIDTH = 960
+private const val MIN_WIDTH = 1000
 private const val MIN_HEIGHT = 600
 
 fun main() = application {
