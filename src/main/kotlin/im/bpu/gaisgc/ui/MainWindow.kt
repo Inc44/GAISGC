@@ -127,7 +127,9 @@ private fun handleKeyEvent(event: KeyEvent, scope: CoroutineScope): Boolean {
 				return true
 			}
 			Screen.RELINKER -> {
-				State.selectAll(State.duplicateItems.map { "${it.chat.id}|${it.original.id}" })
+				State.selectAll(
+					State.getFilteredDuplicateItems().map { "${it.chat.id}|${it.original.id}" }
+				)
 				return true
 			}
 			else -> return false
@@ -199,7 +201,7 @@ private fun ContentArea(
 			onTrash = onTrash,
 			onRelink = onRelink,
 		)
-		if (State.screen == Screen.UNLINKED && showFilters) {
+		if ((State.screen == Screen.UNLINKED || State.screen == Screen.RELINKER) && showFilters) {
 			FilterPanel()
 		}
 		Box(
@@ -315,7 +317,13 @@ private fun StandardHeader(
 			ActionButtons(onRefresh, onToggleFilters, onTrash, onRelink, showFilter = true)
 		} else {
 			Title(modifier = Modifier.weight(1f))
-			ActionButtons(onRefresh, onToggleFilters, onTrash, onRelink, showFilter = false)
+			ActionButtons(
+				onRefresh,
+				onToggleFilters,
+				onTrash,
+				onRelink,
+				showFilter = (State.screen == Screen.RELINKER),
+			)
 		}
 	}
 }
@@ -443,7 +451,7 @@ private fun UnlinkedList() {
 @Composable
 private fun RelinkerList() {
 	val scope = rememberCoroutineScope()
-	val matches = State.duplicateItems
+	val matches = State.getFilteredDuplicateItems()
 	LazyColumn(modifier = Modifier.padding(16.dp)) {
 		items(matches) { match ->
 			val id = "${match.chat.id}|${match.original.id}"

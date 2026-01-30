@@ -125,6 +125,16 @@ object State {
 			.sortedWith(getSortComparator())
 	}
 
+	fun getFilteredDuplicateItems(): List<DuplicateMatch> {
+		return duplicateItems
+			.filter {
+				it.chat.name.contains(filterName, ignoreCase = true) ||
+					it.duplicate.name.contains(filterName, ignoreCase = true)
+			}
+			.filter { matchesMimeType(it.duplicate.mimeType) }
+			.sortedWith { a, b -> getSortComparator().compare(a.chat, b.chat) }
+	}
+
 	private fun matchesMimeType(mimeType: String): Boolean {
 		val lowercaseMimeType = mimeType.lowercase()
 		return when (filterMimeType) {

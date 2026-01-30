@@ -99,7 +99,7 @@ object DriveManager {
 						.files()
 						.list()
 						.setQ("mimeType = '$mime' and trashed = false")
-						.setFields("nextPageToken, files(id, name)")
+						.setFields("nextPageToken, files(createdTime, id, name)")
 						.setPageToken(pageToken)
 						.execute()
 				}
@@ -115,9 +115,12 @@ object DriveManager {
 				service
 					.files()
 					.get(fileId)
-					.setFields("fileExtension, id, mimeType, name, sha256Checksum, size")
+					.setFields(
+						"createdTime, fileExtension, id, mimeType, name, sha256Checksum, size"
+					)
 					.execute()
 			Item(
+				createdTime = file.createdTime?.value ?: 0L,
 				fileExtension = file.fileExtension,
 				id = file.id,
 				mimeType = file.mimeType ?: "",
@@ -195,7 +198,10 @@ object DriveManager {
 		}
 		val service = getService()
 		val chatFiles = getFilesByMime(service, MIME_PROMPT)
-		val chatItems = chatFiles.map { Item(id = it.id, name = it.name) }
+		val chatItems =
+			chatFiles.map {
+				Item(createdTime = it.createdTime?.value ?: 0L, id = it.id, name = it.name)
+			}
 		withContext(Dispatchers.Main) { State.items.addAll(chatItems) }
 		val deferredSubItems =
 			chatFiles.indices.map { i ->
@@ -204,7 +210,13 @@ object DriveManager {
 					val subItemIds = getChatSubItems(service, file.id)
 					val subItems = subItemIds.map { id -> getFileDetails(service, id) }
 					withContext(Dispatchers.Main) {
-						State.items[i] = Item(id = file.id, name = file.name, subItems = subItems)
+						State.items[i] =
+							Item(
+								createdTime = file.createdTime?.value ?: 0L,
+								id = file.id,
+								name = file.name,
+								subItems = subItems,
+							)
 					}
 					subItems
 				}
