@@ -14,7 +14,6 @@ import com.google.api.client.http.GenericUrl
 import com.google.api.client.http.HttpTransport
 import com.google.api.client.json.GenericJson
 import com.google.api.client.json.gson.GsonFactory
-import com.google.api.client.util.Key
 import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
@@ -38,24 +37,6 @@ import kotlinx.coroutines.withContext
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.rendering.PDFRenderer
 import org.jetbrains.skia.Image
-
-class Chat : GenericJson() {
-	@Key("chunkedPrompt") var chunkedPrompt: ChunkedPrompt? = null
-}
-
-class ChunkedPrompt : GenericJson() {
-	@Key("chunks") var chunks: List<Chunk>? = null
-}
-
-class Chunk : GenericJson() {
-	@Key("driveDocument") var driveDocument: DriveReference? = null
-	@Key("driveImage") var driveImage: DriveReference? = null
-	@Key("driveVideo") var driveVideo: DriveReference? = null
-}
-
-class DriveReference : GenericJson() {
-	@Key("id") var id: String? = null
-}
 
 object DriveManager {
 	private const val APPLICATION_NAME = "GAISGC"
@@ -149,9 +130,14 @@ object DriveManager {
 	}
 
 	private fun extractSubItemIds(json: String): List<String> {
-		val chat = JSON_FACTORY.fromString(json, Chat::class.java)
-		return chat.chunkedPrompt?.chunks?.mapNotNull {
-			it.driveDocument?.id ?: it.driveImage?.id ?: it.driveVideo?.id
+		val chat = JSON_FACTORY.fromString(json, GenericJson::class.java)
+		val chunkedPrompt = chat["chunkedPrompt"] as? Map<*, *>
+		val chunks = chunkedPrompt?.get("chunks") as? List<*>
+		return chunks?.mapNotNull { chunk ->
+			val chunkMap = chunk as? Map<*, *>
+			(chunkMap?.get("driveDocument") as? Map<*, *>)?.get("id") as? String
+				?: (chunkMap?.get("driveImage") as? Map<*, *>)?.get("id") as? String
+				?: (chunkMap?.get("driveVideo") as? Map<*, *>)?.get("id") as? String
 		} ?: emptyList()
 	}
 
@@ -394,16 +380,23 @@ object DriveManager {
 					val baos = ByteArrayOutputStream()
 					service.files().get(chatId).executeMediaAndDownloadTo(baos)
 					val content = baos.toString("UTF-8")
-					val chat = JSON_FACTORY.fromString(content, Chat::class.java)
+					val chat = JSON_FACTORY.fromString(content, GenericJson::class.java)
 					var modified = false
-					chat.chunkedPrompt?.chunks?.forEach { chunk ->
-						listOf(chunk.driveDocument, chunk.driveImage, chunk.driveVideo).forEach {
-							driveReference ->
-							if (driveReference != null && driveReference.id != null) {
-								val match = chatMatches.find { it.original.id == driveReference.id }
-								if (match != null) {
-									driveReference.id = match.duplicate.id
-									modified = true
+					val chunkedPrompt = chat["chunkedPrompt"] as? Map<*, *>
+					val chunks = chunkedPrompt?.get("chunks") as? List<*>
+					chunks?.forEach { chunk ->
+						val chunkMap = chunk as? MutableMap<String, Any?>
+						if (chunkMap != null) {
+							listOf("driveDocument", "driveImage", "driveVideo").forEach { key ->
+								val driveReference = chunkMap[key] as? MutableMap<String, Any?>
+								val driveReferenceId = driveReference?.get("id") as? String
+								if (driveReferenceId != null) {
+									val match =
+										chatMatches.find { it.original.id == driveReferenceId }
+									if (match != null) {
+										driveReference["id"] = match.duplicate.id
+										modified = true
+									}
 								}
 							}
 						}
