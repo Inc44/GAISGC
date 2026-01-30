@@ -17,6 +17,7 @@ import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File as DriveFile
+import im.bpu.gaisgc.DuplicateMatch
 import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.PdfDocument
 import im.bpu.gaisgc.State
@@ -123,11 +124,25 @@ object DriveManager {
 		return files
 	}
 
-	private fun getFileName(service: Drive, fileId: String): String? {
+	private fun getFileDetails(service: Drive, fileId: String): Item {
 		return try {
-			service.files().get(fileId).setFields("name").execute().name
+			val file =
+				service
+					.files()
+					.get(fileId)
+					.setFields("fileExtension, id, mimeType, name, sha256Checksum, size")
+					.execute()
+			Item(
+				fileExtension = file.fileExtension,
+				id = file.id,
+				mimeType = file.mimeType ?: "",
+				name = file.name,
+				sha256Checksum = file.sha256Checksum,
+				size = file.getSize() ?: 0L,
+			)
 		} catch (exception: GoogleJsonResponseException) {
-			if (exception.statusCode == 404) null else throw exception
+			if (exception.statusCode == 404) Item(id = fileId, name = fileId, isNotFound = true)
+			else throw exception
 		}
 	}
 
@@ -169,7 +184,9 @@ object DriveManager {
 						.files()
 						.list()
 						.setQ("'$parentId' in parents and trashed = false")
-						.setFields("nextPageToken, files(id, name, createdTime, mimeType, size)")
+						.setFields(
+							"nextPageToken, files(createdTime, fileExtension, id, mimeType, name, sha256Checksum, size)"
+						)
 						.setPageToken(pageToken)
 						.execute()
 				}
@@ -180,57 +197,81 @@ object DriveManager {
 	}
 
 	suspend fun fetch() = coroutineScope {
-		withContext(Dispatchers.Main) { State.clearSelection() }
 		withContext(Dispatchers.Main) {
+			State.clearSelection()
 			State.items.clear()
 			State.unlinkedItems.clear()
+			State.duplicateItems.clear()
 		}
 		val service = getService()
 		val chatFiles = getFilesByMime(service, MIME_PROMPT)
-		withContext(Dispatchers.Main) {
-			chatFiles.forEach { State.items.add(Item(it.id, it.name)) }
-		}
+		val chatItems = chatFiles.map { Item(id = it.id, name = it.name) }
+		withContext(Dispatchers.Main) { State.items.addAll(chatItems) }
 		val deferredSubItems =
 			chatFiles.indices.map { i ->
 				async(Dispatchers.IO) {
 					val file = chatFiles[i]
 					val subItemIds = getChatSubItems(service, file.id)
-					val subItems =
-						subItemIds
-							.map { id ->
-								async {
-									val name = getFileName(service, id)
-									if (name == null) Item(id, id, isNotFound = true)
-									else Item(id, name)
-								}
-							}
-							.awaitAll()
+					val subItems = subItemIds.map { id -> getFileDetails(service, id) }
 					withContext(Dispatchers.Main) {
-						State.items[i] = Item(file.id, file.name, subItems)
+						State.items[i] = Item(id = file.id, name = file.name, subItems = subItems)
 					}
-					subItemIds
+					subItems
 				}
 			}
+		val referencedItems = deferredSubItems.awaitAll().flatten()
+		val referencedItemIds = referencedItems.map { it.id }.toSet()
 		val chatIds = chatFiles.map { it.id }.toSet()
-		val driveReferenceIds = deferredSubItems.awaitAll().flatten().toSet()
 		val gaisFolderId = getFolderId(service, State.gaisPath) ?: return@coroutineScope
 		val gaisFolderFiles = getFilesByParent(service, gaisFolderId)
-		val orphanFiles =
-			gaisFolderFiles.filter { it.id !in chatIds && it.id !in driveReferenceIds }
-		withContext(Dispatchers.Main) {
-			orphanFiles.forEach {
-				State.unlinkedItems.add(
-					Item(
-						id = it.id,
-						name = it.name,
-						createdTime = it.createdTime?.value ?: 0L,
-						mimeType = it.mimeType ?: "",
-						isNotFound = true,
-						size = it.getSize() ?: 0L,
-					)
+		val gaisFolderItems =
+			gaisFolderFiles.map {
+				Item(
+					createdTime = it.createdTime?.value ?: 0L,
+					fileExtension = it.fileExtension,
+					id = it.id,
+					mimeType = it.mimeType ?: "",
+					name = it.name,
+					sha256Checksum = it.sha256Checksum,
+					size = it.getSize() ?: 0L,
 				)
 			}
+		val orphanItems =
+			gaisFolderItems
+				.filter { it.id !in chatIds && it.id !in referencedItemIds }
+				.map { it.copy(isNotFound = true) }
+		withContext(Dispatchers.Main) { State.unlinkedItems.addAll(orphanItems) }
+		val duplicateItems = findDuplicates(State.items.toList(), gaisFolderItems)
+		withContext(Dispatchers.Main) { State.duplicateItems.addAll(duplicateItems) }
+	}
+
+	private fun findDuplicates(
+		chatItems: List<Item>,
+		folderItems: List<Item>,
+	): List<DuplicateMatch> {
+		val duplicateItems = mutableListOf<DuplicateMatch>()
+		for (chatItem in chatItems) {
+			for (subItem in chatItem.subItems) {
+				if (
+					subItem.isNotFound ||
+						subItem.fileExtension == null ||
+						subItem.size == 0L ||
+						subItem.sha256Checksum == null
+				)
+					continue
+				val duplicateItem =
+					folderItems.firstOrNull { folderItem ->
+						folderItem.id != subItem.id &&
+							folderItem.fileExtension == subItem.fileExtension &&
+							folderItem.size == subItem.size &&
+							folderItem.sha256Checksum == subItem.sha256Checksum
+					}
+				if (duplicateItem != null) {
+					duplicateItems.add(DuplicateMatch(chatItem, subItem, duplicateItem))
+				}
+			}
 		}
+		return duplicateItems
 	}
 
 	private fun getChatSubItems(service: Drive, id: String): List<String> {

@@ -19,14 +19,18 @@ import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.rendering.PDFRenderer
 
 data class Item(
-	val id: String,
-	val name: String,
-	val subItems: List<Item> = emptyList(),
-	val isNotFound: Boolean = false,
 	val createdTime: Long = 0L,
+	val fileExtension: String? = null,
+	val id: String,
 	val mimeType: String = "",
+	val name: String,
+	val sha256Checksum: String? = null,
 	val size: Long = -1L,
+	val isNotFound: Boolean = false,
+	val subItems: List<Item> = emptyList(),
 )
+
+data class DuplicateMatch(val chat: Item, val original: Item, val duplicate: Item)
 
 class PdfDocument(private val document: PDDocument, firstPage: ImageBitmap) : Closeable {
 	val pages = mutableStateListOf(firstPage)
@@ -58,6 +62,7 @@ class PdfDocument(private val document: PDDocument, firstPage: ImageBitmap) : Cl
 enum class Screen {
 	MAIN,
 	UNLINKED,
+	RELINKER,
 }
 
 enum class FilterMimeType {
@@ -88,6 +93,7 @@ object State {
 	var gaisPath by mutableStateOf(DEFAULT_GAIS_PATH)
 	val items = mutableStateListOf<Item>()
 	val unlinkedItems = mutableStateListOf<Item>()
+	val duplicateItems = mutableStateListOf<DuplicateMatch>()
 	val selectedDocument = mutableStateListOf<String>()
 	var selectedImage by mutableStateOf<ImageBitmap?>(null)
 	var selectedPdf by mutableStateOf<PdfDocument?>(null)

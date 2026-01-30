@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material3.Button
@@ -145,6 +146,15 @@ private fun NavigationSideBar() {
 			icon = { Icon(Icons.Filled.LinkOff, contentDescription = null) },
 			label = { Text("Unlinked") },
 		)
+		NavigationRailItem(
+			selected = State.screen == Screen.RELINKER,
+			onClick = {
+				State.screen = Screen.RELINKER
+				State.clearSelection()
+			},
+			icon = { Icon(Icons.Filled.ContentCopy, contentDescription = null) },
+			label = { Text("Relinker") },
+		)
 	}
 }
 
@@ -178,6 +188,7 @@ private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit, onTrash: () -
 			when (State.screen) {
 				Screen.MAIN -> ChatList()
 				Screen.UNLINKED -> UnlinkedList()
+				Screen.RELINKER -> RelinkerList()
 			}
 		}
 	}
@@ -375,6 +386,25 @@ private fun UnlinkedList() {
 					State.toggleSelection(item.id, filteredUnlinkedItems.map { it.id })
 				},
 				isOpened = item.id == State.previewId,
+			)
+		}
+	}
+}
+
+@Composable
+private fun RelinkerList() {
+	val scope = rememberCoroutineScope()
+	LazyColumn(modifier = Modifier.padding(16.dp)) {
+		items(State.duplicateItems) { match ->
+			ItemRow(
+				item =
+					Item(
+						id = match.chat.id,
+						name = "${match.chat.name}\n${match.original.name}\n${match.duplicate.name}",
+					),
+				onClick = { scope.launch { DriveManager.loadPreview(match.duplicate, scope) } },
+				hasCheckbox = true,
+				isOpened = match.duplicate.id == State.previewId,
 			)
 		}
 	}
