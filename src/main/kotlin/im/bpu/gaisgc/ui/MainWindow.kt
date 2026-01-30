@@ -434,26 +434,22 @@ private fun UnlinkedList() {
 @Composable
 private fun RelinkerList() {
 	val scope = rememberCoroutineScope()
-	val matchesWithIds =
-		remember(State.duplicateItems) {
-			State.duplicateItems.map { match ->
-				val id = "${match.chat.id}|${match.original.id}"
-				match to id
-			}
-		}
+	val matches = State.duplicateItems
 	LazyColumn(modifier = Modifier.padding(16.dp)) {
-		items(matchesWithIds) { (match, id) ->
+		items(matches) { match ->
 			ItemRow(
 				item =
 					Item(
-						id = id,
+						id = "${match.chat.id}|${match.original.id}",
 						name =
 							"${match.chat.name}: ${match.original.name} → ${match.duplicate.name}",
 					),
 				onClick = { scope.launch { DriveManager.loadPreview(match.duplicate, scope) } },
 				hasCheckbox = true,
 				isChecked = id in State.selectedIds,
-				onCheckedChange = { State.toggleSelection(id, matchesWithIds.map { it.second }) },
+				onCheckedChange = {
+					State.toggleSelection(id, matches.map { "${it.chat.id}|${it.original.id}" })
+				},
 				isOpened = match.duplicate.id == State.previewId,
 			)
 		}
