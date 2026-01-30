@@ -18,6 +18,8 @@ import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File as DriveFile
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonParser
 import im.bpu.gaisgc.DuplicateMatch
 import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.PdfDocument
@@ -402,9 +404,16 @@ object DriveManager {
 						}
 					}
 					if (modified) {
-						val contentString = JSON_FACTORY.toString(chat)
+						var contentString = JSON_FACTORY.toString(chat)
+						val json = JsonParser.parseString(contentString)
+						val gson = GsonBuilder().setPrettyPrinting().create()
+						contentString = gson.toJson(json)
 						val mediaContent = ByteArrayContent.fromString(MIME_PROMPT, contentString)
-						service.files().update(chatId, null, mediaContent).execute()
+						val file = service.files().get(chatId).setFields("modifiedTime").execute()
+						val chatModifiedTime = file.modifiedTime
+						val metadataContent = DriveFile()
+						metadataContent.modifiedTime = chatModifiedTime
+						service.files().update(chatId, metadataContent, mediaContent).execute()
 					}
 					withContext(Dispatchers.Main) {
 						State.duplicateItems.removeAll(chatMatches)
