@@ -9,6 +9,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.http.GenericUrl
 import com.google.api.client.http.HttpTransport
 import com.google.api.client.json.gson.GsonFactory
@@ -379,6 +380,45 @@ object DriveManager {
 							exception.printStackTrace()
 						}
 					}
+				}
+			}
+		}
+
+	suspend fun relink(matches: List<DuplicateMatch>) =
+		withContext(Dispatchers.IO) {
+			val service = getService()
+			val matchesByChat = matches.groupBy { it.chat.id }
+			matchesByChat.forEach { (chatId, chatMatches) ->
+				try {
+					val baos = ByteArrayOutputStream()
+					service.files().get(chatId).executeMediaAndDownloadTo(baos)
+					val content = baos.toString("UTF-8")
+					val chat = JSON_FACTORY.fromString(content, Chat::class.java)
+					var modified = false
+					chat.chunkedPrompt?.chunks?.forEach { chunk ->
+						listOf(chunk.driveDocument, chunk.driveImage, chunk.driveVideo).forEach {
+							driveReference ->
+							if (driveReference != null && driveReference.id != null) {
+								val match = chatMatches.find { it.original.id == driveReference.id }
+								if (match != null) {
+									driveReference.id = match.duplicate.id
+									modified = true
+								}
+							}
+						}
+					}
+					if (modified) {
+						val contentString = JSON_FACTORY.toString(chat)
+						val mediaContent = ByteArrayContent.fromString(MIME_PROMPT, contentString)
+						service.files().update(chatId, null, mediaContent).execute()
+					}
+					withContext(Dispatchers.Main) {
+						State.duplicateItems.removeAll(chatMatches)
+						val matchIds = chatMatches.map { "${it.chat.id}|${it.original.id}" }
+						State.selectedIds.removeAll(matchIds)
+					}
+				} catch (exception: Exception) {
+					exception.printStackTrace()
 				}
 			}
 		}

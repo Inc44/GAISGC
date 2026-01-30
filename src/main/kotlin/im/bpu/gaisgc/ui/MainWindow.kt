@@ -82,6 +82,15 @@ fun ApplicationLayout() {
 					modifier = Modifier.weight(1f),
 					onRefresh = { scope.launch { DriveManager.fetch() } },
 					onTrash = { scope.launch { DriveManager.trash(State.selectedIds.toList()) } },
+					onRelink = {
+						scope.launch {
+							val matches =
+								State.duplicateItems.filter {
+									"${it.chat.id}|${it.original.id}" in State.selectedIds
+								}
+							DriveManager.relink(matches)
+						}
+					},
 				)
 				if (
 					State.selectedDocument.isNotEmpty() ||
@@ -100,16 +109,18 @@ private fun handleKeyEvent(event: KeyEvent, scope: CoroutineScope): Boolean {
 		State.isShiftPressed = event.type == KeyEventType.KeyDown
 		return false
 	}
-	if (event.type != KeyEventType.KeyDown || State.screen != Screen.UNLINKED) return false
+	if (event.type != KeyEventType.KeyDown) return false
 	if (event.key == Key.Escape && (State.selectedIds.isNotEmpty() || State.previewId != null)) {
 		State.clearSelection()
 		return true
 	}
-	if (event.key == Key.Delete && State.selectedIds.isNotEmpty()) {
+	if (
+		State.screen == Screen.UNLINKED && event.key == Key.Delete && State.selectedIds.isNotEmpty()
+	) {
 		scope.launch { DriveManager.trash(State.selectedIds.toList()) }
 		return true
 	}
-	if (event.isCtrlPressed && event.key == Key.A) {
+	if (State.screen == Screen.UNLINKED && event.isCtrlPressed && event.key == Key.A) {
 		State.selectAll(State.getFilteredUnlinkedItems().map { it.id })
 		return true
 	}
@@ -159,7 +170,12 @@ private fun NavigationSideBar() {
 }
 
 @Composable
-private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit, onTrash: () -> Unit) {
+private fun ContentArea(
+	modifier: Modifier,
+	onRefresh: () -> Unit,
+	onTrash: () -> Unit,
+	onRelink: () -> Unit,
+) {
 	var showFilters by remember { mutableStateOf(false) }
 	val interactionSource = remember { MutableInteractionSource() }
 	Column(
@@ -172,6 +188,7 @@ private fun ContentArea(modifier: Modifier, onRefresh: () -> Unit, onTrash: () -
 			onRefresh = onRefresh,
 			onToggleFilters = { showFilters = !showFilters },
 			onTrash = onTrash,
+			onRelink = onRelink,
 		)
 		if (State.screen == Screen.UNLINKED && showFilters) {
 			FilterPanel()
@@ -240,18 +257,28 @@ private fun PreviewPane(modifier: Modifier) {
 }
 
 @Composable
-private fun Header(onRefresh: () -> Unit, onToggleFilters: () -> Unit, onTrash: () -> Unit) {
+private fun Header(
+	onRefresh: () -> Unit,
+	onToggleFilters: () -> Unit,
+	onTrash: () -> Unit,
+	onRelink: () -> Unit,
+) {
 	BoxWithConstraints(modifier = Modifier.padding(16.dp)) {
 		if (State.screen == Screen.UNLINKED && maxWidth < 480.dp) {
-			CompactHeader(onRefresh, onToggleFilters, onTrash)
+			CompactHeader(onRefresh, onToggleFilters, onTrash, onRelink)
 		} else {
-			StandardHeader(onRefresh, onToggleFilters, onTrash)
+			StandardHeader(onRefresh, onToggleFilters, onTrash, onRelink)
 		}
 	}
 }
 
 @Composable
-private fun CompactHeader(onRefresh: () -> Unit, onToggleFilters: () -> Unit, onTrash: () -> Unit) {
+private fun CompactHeader(
+	onRefresh: () -> Unit,
+	onToggleFilters: () -> Unit,
+	onTrash: () -> Unit,
+	onRelink: () -> Unit,
+) {
 	Column {
 		PathInput(modifier = Modifier.fillMaxWidth())
 		Spacer(Modifier.height(8.dp))
@@ -260,7 +287,7 @@ private fun CompactHeader(onRefresh: () -> Unit, onToggleFilters: () -> Unit, on
 			horizontalArrangement = Arrangement.End,
 			verticalAlignment = Alignment.CenterVertically,
 		) {
-			ActionButtons(onRefresh, onToggleFilters, onTrash, showFilter = true)
+			ActionButtons(onRefresh, onToggleFilters, onTrash, onRelink, showFilter = true)
 		}
 	}
 }
@@ -270,15 +297,16 @@ private fun StandardHeader(
 	onRefresh: () -> Unit,
 	onToggleFilters: () -> Unit,
 	onTrash: () -> Unit,
+	onRelink: () -> Unit,
 ) {
 	Row(modifier = Modifier.heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
 		if (State.screen == Screen.UNLINKED) {
 			PathInput(modifier = Modifier.weight(1f))
 			Spacer(Modifier.width(8.dp))
-			ActionButtons(onRefresh, onToggleFilters, onTrash, showFilter = true)
+			ActionButtons(onRefresh, onToggleFilters, onTrash, onRelink, showFilter = true)
 		} else {
 			Title(modifier = Modifier.weight(1f))
-			ActionButtons(onRefresh, onToggleFilters, onTrash, showFilter = false)
+			ActionButtons(onRefresh, onToggleFilters, onTrash, onRelink, showFilter = false)
 		}
 	}
 }
@@ -288,6 +316,7 @@ private fun ActionButtons(
 	onRefresh: () -> Unit,
 	onToggleFilters: () -> Unit,
 	onTrash: () -> Unit,
+	onRelink: () -> Unit,
 	showFilter: Boolean,
 ) {
 	if (showFilter) {
@@ -299,11 +328,22 @@ private fun ActionButtons(
 	Button(onClick = onRefresh) { Text("Refresh") }
 	if (State.selectedIds.isNotEmpty()) {
 		Spacer(Modifier.width(8.dp))
-		Button(
-			onClick = onTrash,
-			colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-		) {
-			Text("Trash (${State.selectedIds.size})")
+		if (State.screen == Screen.RELINKER) {
+			Button(
+				onClick = onRelink,
+				colors =
+					ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+			) {
+				Text("Relink (${State.selectedIds.size})")
+			}
+		} else {
+			Button(
+				onClick = onTrash,
+				colors =
+					ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+			) {
+				Text("Trash (${State.selectedIds.size})")
+			}
 		}
 	}
 }
@@ -394,16 +434,26 @@ private fun UnlinkedList() {
 @Composable
 private fun RelinkerList() {
 	val scope = rememberCoroutineScope()
+	val matchesWithIds =
+		remember(State.duplicateItems) {
+			State.duplicateItems.map { match ->
+				val id = "${match.chat.id}|${match.original.id}"
+				match to id
+			}
+		}
 	LazyColumn(modifier = Modifier.padding(16.dp)) {
-		items(State.duplicateItems) { match ->
+		items(matchesWithIds) { (match, id) ->
 			ItemRow(
 				item =
 					Item(
-						id = match.chat.id,
-						name = "${match.chat.name}\n${match.original.name}\n${match.duplicate.name}",
+						id = id,
+						name =
+							"${match.chat.name}: ${match.original.name} → ${match.duplicate.name}",
 					),
 				onClick = { scope.launch { DriveManager.loadPreview(match.duplicate, scope) } },
 				hasCheckbox = true,
+				isChecked = id in State.selectedIds,
+				onCheckedChange = { State.toggleSelection(id, matchesWithIds.map { it.second }) },
 				isOpened = match.duplicate.id == State.previewId,
 			)
 		}
