@@ -120,9 +120,18 @@ private fun handleKeyEvent(event: KeyEvent, scope: CoroutineScope): Boolean {
 		scope.launch { DriveManager.trash(State.selectedIds.toList()) }
 		return true
 	}
-	if (State.screen == Screen.UNLINKED && event.isCtrlPressed && event.key == Key.A) {
-		State.selectAll(State.getFilteredUnlinkedItems().map { it.id })
-		return true
+	if (event.isCtrlPressed && event.key == Key.A) {
+		when (State.screen) {
+			Screen.UNLINKED -> {
+				State.selectAll(State.getFilteredUnlinkedItems().map { it.id })
+				return true
+			}
+			Screen.RELINKER -> {
+				State.selectAll(State.duplicateItems.map { "${it.chat.id}|${it.original.id}" })
+				return true
+			}
+			else -> return false
+		}
 	}
 	return false
 }
@@ -437,10 +446,11 @@ private fun RelinkerList() {
 	val matches = State.duplicateItems
 	LazyColumn(modifier = Modifier.padding(16.dp)) {
 		items(matches) { match ->
+			val id = "${match.chat.id}|${match.original.id}"
 			ItemRow(
 				item =
 					Item(
-						id = "${match.chat.id}|${match.original.id}",
+						id = id,
 						name =
 							"${match.chat.name}: ${match.original.name} → ${match.duplicate.name}",
 					),
