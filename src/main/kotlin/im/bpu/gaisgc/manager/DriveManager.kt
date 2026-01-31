@@ -69,6 +69,7 @@ object DriveManager {
 				.build()
 		val receiver = LocalServerReceiver.Builder().setPort(PORT).build()
 		val credential = AuthorizationCodeInstalledApp(flow, receiver).authorize(USER_ID)
+		State.isConnected = true
 		return credential
 	}
 
@@ -99,6 +100,8 @@ object DriveManager {
 				tokensDirectoryPath.deleteRecursively()
 			}
 			driveService = null
+			State.isConnected = false
+			State.screen = im.bpu.gaisgc.Screen.MAIN
 			State.clearSelection()
 			State.items.clear()
 			State.unlinkedItems.clear()

@@ -84,33 +84,53 @@ private const val PREVIEW_PANE_WIDTH_DP = 560f
 fun ApplicationLayout() {
 	val scope = rememberCoroutineScope()
 	val density = LocalDensity.current.density
-	LaunchedEffect(Unit) { DriveManager.fetch() }
+	LaunchedEffect(State.isConnected) { if (State.isConnected) DriveManager.fetch() }
 	MaterialTheme {
 		Scaffold(modifier = Modifier.onPreviewKeyEvent { handleKeyEvent(it, scope) }) { padding ->
-			Row(modifier = Modifier.padding(padding).fillMaxSize()) {
-				NavigationSideBar()
-				ContentArea(
-					modifier = Modifier.weight(1f),
-					onRefresh = { scope.launch { DriveManager.fetch() } },
-					onTrash = { scope.launch { DriveManager.trash(State.selectedIds.toList()) } },
-					onRelink = {
-						scope.launch {
-							val matches =
-								State.duplicateItems.filter {
-									"${it.chat.id}|${it.original.id}" in State.selectedIds
-								}
-							DriveManager.relink(matches)
-						}
-					},
-					previewPaneWidthPx = PREVIEW_PANE_WIDTH_DP * density,
-				)
-				if (
-					State.selectedDocument.isNotEmpty() ||
-						State.selectedImage != null ||
-						State.selectedPdf != null
-				) {
-					PreviewPane(modifier = Modifier.width(PREVIEW_PANE_WIDTH_DP.dp))
+			if (!State.isConnected) {
+				ConnectView(modifier = Modifier.padding(padding).fillMaxSize())
+			} else {
+				Row(modifier = Modifier.padding(padding).fillMaxSize()) {
+					NavigationSideBar()
+					ContentArea(
+						modifier = Modifier.weight(1f),
+						onRefresh = { scope.launch { DriveManager.fetch() } },
+						onTrash = {
+							scope.launch { DriveManager.trash(State.selectedIds.toList()) }
+						},
+						onRelink = {
+							scope.launch {
+								val matches =
+									State.duplicateItems.filter {
+										"${it.chat.id}|${it.original.id}" in State.selectedIds
+									}
+								DriveManager.relink(matches)
+							}
+						},
+						previewPaneWidthPx = PREVIEW_PANE_WIDTH_DP * density,
+					)
+					if (
+						State.selectedDocument.isNotEmpty() ||
+							State.selectedImage != null ||
+							State.selectedPdf != null
+					) {
+						PreviewPane(modifier = Modifier.width(PREVIEW_PANE_WIDTH_DP.dp))
+					}
 				}
+			}
+		}
+	}
+}
+
+@Composable
+private fun ConnectView(modifier: Modifier) {
+	val scope = rememberCoroutineScope()
+	Box(modifier = modifier, contentAlignment = Alignment.Center) {
+		Column(horizontalAlignment = Alignment.CenterHorizontally) {
+			Text("Keep Your Google Drive Clean", style = MaterialTheme.typography.headlineMedium)
+			Spacer(Modifier.height(16.dp))
+			Button(onClick = { scope.launch { DriveManager.fetch() } }) {
+				Text("Connect to Google Drive")
 			}
 		}
 	}

@@ -94,6 +94,7 @@ enum class RelinkMethod {
 
 object State {
 	private const val CONFIG_FILE_PATH = "config.properties"
+	private const val TOKENS_DIRECTORY_PATH = "tokens"
 	private const val GAIS_PATH_PROPERTY = "gaisPath"
 	private const val DUPLICATES_PATH_PROPERTY = "duplicatesPath"
 	private const val MIDDLE_FRAME_PROPERTY = "middleFrame"
@@ -104,6 +105,7 @@ object State {
 	private val properties = Properties()
 	private val configFile = File(CONFIG_FILE_PATH)
 	private val shiftRangeIds = mutableListOf<String>()
+	var isConnected by mutableStateOf(false)
 	var screen by mutableStateOf(Screen.MAIN)
 	var gaisPath by mutableStateOf(DEFAULT_GAIS_PATH)
 	var duplicatesPath by mutableStateOf(DEFAULT_DUPLICATES_PATH)
@@ -139,6 +141,9 @@ object State {
 					RelinkMethod.PRETTY
 				}
 		}
+		isConnected =
+			File(TOKENS_DIRECTORY_PATH).exists() &&
+				File(TOKENS_DIRECTORY_PATH).walk().any { it.name == "StoredCredential" }
 	}
 
 	fun saveGaisPath(path: String) {
