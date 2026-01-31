@@ -20,6 +20,8 @@ import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File as DriveFile
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonToken
 import im.bpu.gaisgc.DuplicateMatch
 import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.PdfDocument
@@ -28,6 +30,7 @@ import im.bpu.gaisgc.manager.MediaManager.getVideoMiddleFrame
 import im.bpu.gaisgc.manager.MediaManager.isVideoThumbnailBlack
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import java.io.InputStreamReader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -134,16 +137,56 @@ object DriveManager {
 		}
 	}
 
-	private fun extractSubItemIds(json: String): List<String> {
-		val chat = JSON_FACTORY.fromString(json, GenericJson::class.java)
-		val chunkedPrompt = chat["chunkedPrompt"] as? Map<*, *>
-		val chunks = chunkedPrompt?.get("chunks") as? List<*>
-		return chunks?.mapNotNull { chunk ->
-			val chunkMap = chunk as? Map<*, *>
-			(chunkMap?.get("driveDocument") as? Map<*, *>)?.get("id") as? String
-				?: (chunkMap?.get("driveImage") as? Map<*, *>)?.get("id") as? String
-				?: (chunkMap?.get("driveVideo") as? Map<*, *>)?.get("id") as? String
-		} ?: emptyList()
+	private fun extractSubItemIds(ins: InputStream): List<String> {
+		val ids = mutableListOf<String>()
+		val reader = JsonReader(InputStreamReader(ins, "UTF-8"))
+		reader.use {
+			if (it.peek() == JsonToken.BEGIN_OBJECT) {
+				parseObject(it, ids)
+			}
+		}
+		return ids
+	}
+
+	private fun parseObject(reader: JsonReader, ids: MutableList<String>) {
+		reader.beginObject()
+		while (reader.hasNext()) {
+			val name = reader.nextName()
+			when {
+				name == "driveDocument" || name == "driveImage" || name == "driveVideo" -> {
+					parseIdContainer(reader, ids)
+				}
+				reader.peek() == JsonToken.BEGIN_OBJECT -> parseObject(reader, ids)
+				reader.peek() == JsonToken.BEGIN_ARRAY -> parseArray(reader, ids)
+				else -> reader.skipValue()
+			}
+		}
+		reader.endObject()
+	}
+
+	private fun parseArray(reader: JsonReader, ids: MutableList<String>) {
+		reader.beginArray()
+		while (reader.hasNext()) {
+			when (reader.peek()) {
+				JsonToken.BEGIN_OBJECT -> parseObject(reader, ids)
+				JsonToken.BEGIN_ARRAY -> parseArray(reader, ids)
+				else -> reader.skipValue()
+			}
+		}
+		reader.endArray()
+	}
+
+	private fun parseIdContainer(reader: JsonReader, ids: MutableList<String>) {
+		reader.beginObject()
+		while (reader.hasNext()) {
+			val name = reader.nextName()
+			if (name == "id" && reader.peek() == JsonToken.STRING) {
+				ids.add(reader.nextString())
+			} else {
+				reader.skipValue()
+			}
+		}
+		reader.endObject()
 	}
 
 	private suspend fun getFolderId(service: Drive, path: String): String? =
@@ -295,11 +338,7 @@ object DriveManager {
 	}
 
 	private fun getChatSubItems(service: Drive, id: String): List<String> {
-		val baos = ByteArrayOutputStream()
-		service.files().get(id).executeMediaAndDownloadTo(baos)
-		val content = baos.toString("UTF-8")
-		val subItemIds = extractSubItemIds(content)
-		return subItemIds
+		return service.files().get(id).executeMediaAsInputStream().use { extractSubItemIds(it) }
 	}
 
 	suspend fun getDocumentById(id: String): List<String>? =
