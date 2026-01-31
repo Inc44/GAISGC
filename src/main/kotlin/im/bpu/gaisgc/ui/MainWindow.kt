@@ -256,7 +256,7 @@ private fun ContentArea(
 				}
 		) {
 			when (State.screen) {
-				Screen.MAIN -> ChatList()
+				Screen.MAIN -> ChatList(previewPaneWidthPx)
 				Screen.UNLINKED -> UnlinkedList(previewPaneWidthPx)
 				Screen.RELINKER -> RelinkerList(previewPaneWidthPx)
 				Screen.SETTINGS -> SettingsPanel()
@@ -494,8 +494,23 @@ private fun Title(modifier: Modifier) {
 }
 
 @Composable
-private fun ChatList() {
-	LazyColumn(modifier = Modifier.padding(16.dp)) { items(State.items) { item -> ItemRow(item) } }
+private fun ChatList(previewPaneWidthPx: Float) {
+	val scope = rememberCoroutineScope()
+	LazyColumn(modifier = Modifier.padding(16.dp)) {
+		items(State.items) { item ->
+			ItemRow(
+				item = item,
+				onClick = {
+					scope.launch { DriveManager.loadPreview(item, scope, previewPaneWidthPx) }
+				},
+				isOpened = item.id == State.previewId,
+				onSubItemClick = { subItem ->
+					scope.launch { DriveManager.loadPreview(subItem, scope, previewPaneWidthPx) }
+				},
+				previewId = State.previewId,
+			)
+		}
+	}
 }
 
 @Composable
@@ -645,6 +660,8 @@ private fun ItemRow(
 	isChecked: Boolean = false,
 	onCheckedChange: ((Boolean) -> Unit)? = null,
 	isOpened: Boolean = false,
+	onSubItemClick: ((Item) -> Unit)? = null,
+	previewId: String? = null,
 ) {
 	val color =
 		when {
@@ -669,7 +686,16 @@ private fun ItemRow(
 		}
 		Column {
 			Text(text = item.name, style = MaterialTheme.typography.bodyMedium, color = color)
-			item.subItems.forEach { subItem -> ItemRow(subItem, depth + 1) }
+			item.subItems.forEach { subItem ->
+				ItemRow(
+					item = subItem,
+					depth = depth + 1,
+					onClick = { onSubItemClick?.invoke(subItem) },
+					isOpened = subItem.id == previewId,
+					onSubItemClick = onSubItemClick,
+					previewId = previewId,
+				)
+			}
 		}
 	}
 }
