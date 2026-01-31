@@ -105,6 +105,7 @@ object State {
 	private val properties = Properties()
 	private val configFile = File(CONFIG_FILE_PATH)
 	private val shiftRangeIds = mutableListOf<String>()
+	val cacheDirectoryPath = File(System.getProperty("user.home"), ".gaisgc/cache")
 	var isConnected by mutableStateOf(false)
 	var screen by mutableStateOf(Screen.MAIN)
 	var gaisPath by mutableStateOf(DEFAULT_GAIS_PATH)
@@ -144,6 +145,7 @@ object State {
 		isConnected =
 			File(TOKENS_DIRECTORY_PATH).exists() &&
 				File(TOKENS_DIRECTORY_PATH).walk().any { it.name == "StoredCredential" }
+		if (!cacheDirectoryPath.exists()) cacheDirectoryPath.mkdirs()
 	}
 
 	fun saveGaisPath(path: String) {

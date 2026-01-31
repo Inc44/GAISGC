@@ -637,7 +637,7 @@ private fun SettingsPanel() {
 			Spacer(Modifier.height(4.dp))
 		}
 		Button(
-			onClick = {},
+			onClick = { DriveManager.clearCache() },
 			colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 		) {
 			Text("Clear Cache")

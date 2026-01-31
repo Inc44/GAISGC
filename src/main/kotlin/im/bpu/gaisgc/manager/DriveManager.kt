@@ -18,6 +18,7 @@ import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File as DriveFile
+import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
 import com.google.gson.stream.JsonReader
@@ -56,6 +57,7 @@ object DriveManager {
 	private val JSON_FACTORY = GsonFactory.getDefaultInstance()
 	private val SCOPES = listOf(DriveScopes.DRIVE)
 	private var driveService: Drive? = null
+	private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
 	private fun getCredentials(httpTransport: HttpTransport): Credential {
 		val file = File(CREDENTIALS_FILE_PATH)
@@ -121,7 +123,7 @@ object DriveManager {
 						.files()
 						.list()
 						.setQ("mimeType = '$mime' and trashed = false")
-						.setFields("nextPageToken, files(createdTime, id, name)")
+						.setFields("nextPageToken, files(createdTime, id, name, sha256Checksum)")
 						.setPageToken(pageToken)
 						.execute()
 				}
@@ -262,21 +264,44 @@ object DriveManager {
 		val chatFiles = getFilesByMime(service, MIME_PROMPT)
 		val chatItems =
 			chatFiles.map {
-				Item(createdTime = it.createdTime?.value ?: 0L, id = it.id, name = it.name)
+				Item(
+					createdTime = it.createdTime?.value ?: 0L,
+					id = it.id,
+					name = it.name,
+					sha256Checksum = it.sha256Checksum,
+				)
 			}
 		withContext(Dispatchers.Main) { State.items.addAll(chatItems) }
 		val deferredSubItems =
 			chatFiles.indices.map { i ->
 				async(Dispatchers.IO) {
 					val file = chatFiles[i]
-					val subItemIds = getChatSubItems(service, file.id)
-					val subItems = subItemIds.map { id -> getFileDetails(service, id) }
+					val cachedItem =
+						if (State.cache) loadFromCache(file.id, file.sha256Checksum) else null
+					val subItems =
+						if (cachedItem != null) {
+							cachedItem.subItems
+						} else {
+							val subItemIds = getChatSubItems(service, file.id)
+							val fetchedSubItems =
+								subItemIds.map { id -> getFileDetails(service, id) }
+							if (State.cache)
+								saveToCache(
+									file.createdTime?.value ?: 0L,
+									file.id,
+									file.name,
+									file.sha256Checksum,
+									fetchedSubItems,
+								)
+							fetchedSubItems
+						}
 					withContext(Dispatchers.Main) {
 						State.items[i] =
 							Item(
 								createdTime = file.createdTime?.value ?: 0L,
 								id = file.id,
 								name = file.name,
+								sha256Checksum = file.sha256Checksum,
 								subItems = subItems,
 							)
 					}
@@ -324,6 +349,49 @@ object DriveManager {
 				}
 			val duplicateItems = findDuplicates(State.items.toList(), duplicatesFolderItems)
 			withContext(Dispatchers.Main) { State.duplicateItems.addAll(duplicateItems) }
+		}
+	}
+
+	private fun loadFromCache(id: String, sha256Checksum: String?): Item? {
+		if (sha256Checksum == null) return null
+		val cacheFile = File(State.cacheDirectoryPath, id)
+		if (!cacheFile.exists()) return null
+		return try {
+			val json = cacheFile.readText()
+			val item = gson.fromJson(json, Item::class.java)
+			if (item.sha256Checksum == sha256Checksum) item else null
+		} catch (exception: Exception) {
+			null
+		}
+	}
+
+	private fun saveToCache(
+		createdTime: Long,
+		id: String,
+		name: String,
+		sha256Checksum: String?,
+		subItems: List<Item>,
+	) {
+		if (sha256Checksum == null) return
+		try {
+			val item =
+				Item(
+					createdTime = createdTime,
+					id = id,
+					name = name,
+					sha256Checksum = sha256Checksum,
+					subItems = subItems,
+				)
+			val json = gson.toJson(item)
+			File(State.cacheDirectoryPath, id).writeText(json)
+		} catch (exception: Exception) {
+			exception.printStackTrace()
+		}
+	}
+
+	fun clearCache() {
+		if (State.cacheDirectoryPath.exists()) {
+			State.cacheDirectoryPath.listFiles()?.forEach { it.delete() }
 		}
 	}
 
@@ -508,6 +576,7 @@ object DriveManager {
 						val metadataContent = DriveFile()
 						metadataContent.modifiedTime = chatModifiedTime
 						service.files().update(chatId, metadataContent, mediaContent).execute()
+						File(State.cacheDirectoryPath, chatId).delete()
 					}
 					withContext(Dispatchers.Main) {
 						State.duplicateItems.removeAll(chatMatches)
