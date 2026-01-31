@@ -369,16 +369,22 @@ object DriveManager {
 			}
 		}
 
-	suspend fun getPdfById(id: String, scope: CoroutineScope): PdfDocument? =
+	suspend fun getPdfById(
+		id: String,
+		scope: CoroutineScope,
+		previewPaneWidthPx: Float,
+	): PdfDocument? =
 		withContext(Dispatchers.IO) {
 			try {
 				val service = getService()
 				val bytes = downloadFileBytes(service, id)
 				val document = Loader.loadPDF(bytes)
 				val renderer = PDFRenderer(document)
-				val firstPage = renderer.renderImageWithDPI(0, 300f).toComposeImageBitmap()
-				val pdfDocument = PdfDocument(document, firstPage)
-				pdfDocument.renderRemaining(scope)
+				val firstPdfPageWidthPts = document.getPage(0).mediaBox.width
+				val dpi = (previewPaneWidthPx * 72f) / firstPdfPageWidthPts
+				val firstPdfPage = renderer.renderImageWithDPI(0, dpi).toComposeImageBitmap()
+				val pdfDocument = PdfDocument(document, firstPdfPage)
+				pdfDocument.renderRemaining(scope, previewPaneWidthPx)
 				pdfDocument
 			} catch (exception: Exception) {
 				null
@@ -495,7 +501,7 @@ object DriveManager {
 			}
 		}
 
-	suspend fun loadPreview(item: Item, scope: CoroutineScope) {
+	suspend fun loadPreview(item: Item, scope: CoroutineScope, previewPaneWidthPx: Float) {
 		State.previewId = item.id
 		State.selectedDocument.clear()
 		State.selectedImage = null
@@ -511,7 +517,7 @@ object DriveManager {
 				State.selectedImage = getImageById(item.id)
 			}
 			State.isPdf(lowercaseMimeType) -> {
-				State.selectedPdf = getPdfById(item.id, scope)
+				State.selectedPdf = getPdfById(item.id, scope, previewPaneWidthPx)
 			}
 			State.isVideo(lowercaseMimeType) -> {
 				State.selectedImage = getVideoById(item.id, item.size)

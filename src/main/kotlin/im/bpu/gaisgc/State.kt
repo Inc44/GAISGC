@@ -36,7 +36,7 @@ class PdfDocument(private val document: PDDocument, firstPage: ImageBitmap) : Cl
 	val pages = mutableStateListOf(firstPage)
 	@Volatile private var isClosed = false
 
-	fun renderRemaining(scope: CoroutineScope) {
+	fun renderRemaining(scope: CoroutineScope, previewPaneWidthPx: Float) {
 		scope.launch(Dispatchers.IO) {
 			val renderer = PDFRenderer(document)
 			for (i in 1 until document.numberOfPages) {
@@ -44,7 +44,9 @@ class PdfDocument(private val document: PDDocument, firstPage: ImageBitmap) : Cl
 				val bitmap =
 					synchronized(document) {
 						if (isClosed) return@synchronized null
-						renderer.renderImageWithDPI(i, 300f).toComposeImageBitmap()
+						val pdfPageWidthPts = document.getPage(i).mediaBox.width
+						val dpi = (previewPaneWidthPx * 72f) / pdfPageWidthPts
+						renderer.renderImageWithDPI(i, dpi).toComposeImageBitmap()
 					}
 				if (bitmap != null) {
 					withContext(Dispatchers.Main) { if (!isClosed) pages.add(bitmap) }

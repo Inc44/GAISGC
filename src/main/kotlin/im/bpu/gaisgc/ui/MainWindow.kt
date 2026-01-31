@@ -58,6 +58,7 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -70,9 +71,12 @@ import im.bpu.gaisgc.manager.DriveManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+private const val PREVIEW_PANE_WIDTH_DP = 560f
+
 @Composable
 fun ApplicationLayout() {
 	val scope = rememberCoroutineScope()
+	val density = LocalDensity.current.density
 	LaunchedEffect(Unit) { DriveManager.fetch() }
 	MaterialTheme {
 		Scaffold(modifier = Modifier.onPreviewKeyEvent { handleKeyEvent(it, scope) }) { padding ->
@@ -91,13 +95,14 @@ fun ApplicationLayout() {
 							DriveManager.relink(matches)
 						}
 					},
+					previewPaneWidthPx = PREVIEW_PANE_WIDTH_DP * density,
 				)
 				if (
 					State.selectedDocument.isNotEmpty() ||
 						State.selectedImage != null ||
 						State.selectedPdf != null
 				) {
-					PreviewPane(modifier = Modifier.width(560.dp))
+					PreviewPane(modifier = Modifier.width(PREVIEW_PANE_WIDTH_DP.dp))
 				}
 			}
 		}
@@ -186,6 +191,7 @@ private fun ContentArea(
 	onRefresh: () -> Unit,
 	onTrash: () -> Unit,
 	onRelink: () -> Unit,
+	previewPaneWidthPx: Float,
 ) {
 	var showFilters by remember { mutableStateOf(false) }
 	val interactionSource = remember { MutableInteractionSource() }
@@ -215,8 +221,8 @@ private fun ContentArea(
 		) {
 			when (State.screen) {
 				Screen.MAIN -> ChatList()
-				Screen.UNLINKED -> UnlinkedList()
-				Screen.RELINKER -> RelinkerList()
+				Screen.UNLINKED -> UnlinkedList(previewPaneWidthPx)
+				Screen.RELINKER -> RelinkerList(previewPaneWidthPx)
 			}
 		}
 	}
@@ -454,14 +460,16 @@ private fun ChatList() {
 }
 
 @Composable
-private fun UnlinkedList() {
+private fun UnlinkedList(previewPaneWidthPx: Float) {
 	val scope = rememberCoroutineScope()
 	val filteredUnlinkedItems = State.getFilteredUnlinkedItems()
 	LazyColumn(modifier = Modifier.padding(16.dp)) {
 		items(filteredUnlinkedItems) { item ->
 			ItemRow(
 				item = item,
-				onClick = { scope.launch { DriveManager.loadPreview(item, scope) } },
+				onClick = {
+					scope.launch { DriveManager.loadPreview(item, scope, previewPaneWidthPx) }
+				},
 				hasCheckbox = true,
 				isChecked = item.id in State.selectedIds,
 				onCheckedChange = {
@@ -474,7 +482,7 @@ private fun UnlinkedList() {
 }
 
 @Composable
-private fun RelinkerList() {
+private fun RelinkerList(previewPaneWidthPx: Float) {
 	val scope = rememberCoroutineScope()
 	val matches = State.getFilteredDuplicateItems()
 	LazyColumn(modifier = Modifier.padding(16.dp)) {
@@ -487,7 +495,11 @@ private fun RelinkerList() {
 						name =
 							"${match.chat.name}: ${match.original.name} → ${match.duplicate.name}",
 					),
-				onClick = { scope.launch { DriveManager.loadPreview(match.duplicate, scope) } },
+				onClick = {
+					scope.launch {
+						DriveManager.loadPreview(match.duplicate, scope, previewPaneWidthPx)
+					}
+				},
 				hasCheckbox = true,
 				isChecked = id in State.selectedIds,
 				onCheckedChange = {
