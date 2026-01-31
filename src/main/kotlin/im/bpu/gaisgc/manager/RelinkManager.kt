@@ -4,6 +4,7 @@ import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.json.GenericJson
 import com.google.api.services.drive.model.File as DriveFile
 import com.google.gson.JsonParser
+import im.bpu.gaisgc.Constants
 import im.bpu.gaisgc.DuplicateMatch
 import im.bpu.gaisgc.RelinkMethod
 import im.bpu.gaisgc.State
@@ -14,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object RelinkManager {
-	private const val MIME_PROMPT = "application/vnd.google-makersuite.prompt"
 
 	suspend fun relink(matches: List<DuplicateMatch>) =
 		withContext(Dispatchers.IO) {
@@ -88,7 +88,8 @@ object RelinkManager {
 						}
 					}
 					if (modified) {
-						val mediaContent = ByteArrayContent.fromString(MIME_PROMPT, content)
+						val mediaContent =
+							ByteArrayContent.fromString(Constants.MIME_PROMPT, content)
 						val file = service.files().get(chatId).setFields("modifiedTime").execute()
 						val chatModifiedTime = file.modifiedTime
 						val metadataContent = DriveFile()

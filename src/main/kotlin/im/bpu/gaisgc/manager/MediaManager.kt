@@ -3,6 +3,7 @@ package im.bpu.gaisgc.manager
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.google.api.services.drive.Drive
+import im.bpu.gaisgc.Constants
 import im.bpu.gaisgc.service.DriveService
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -11,7 +12,6 @@ import kotlin.math.pow
 import org.jetbrains.skia.Image
 
 object MediaManager {
-	private const val LUMINANCE_THRESHOLD = 0.128
 
 	private fun srgb(channel: Double): Double {
 		return if (channel <= 0.04045) channel / 12.92 else ((channel + 0.055) / 1.055).pow(2.4)
@@ -36,7 +36,7 @@ object MediaManager {
 				val b = (rgbPixel and 0xFF) / 255.0
 				luminance += relativeLuminance(r, g, b)
 			}
-			(luminance / pixelCount) < LUMINANCE_THRESHOLD
+			(luminance / pixelCount) < Constants.LUMINANCE_THRESHOLD
 		} catch (exception: Exception) {
 			false
 		}

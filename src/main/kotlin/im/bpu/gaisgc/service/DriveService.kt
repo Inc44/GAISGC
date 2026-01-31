@@ -12,6 +12,7 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
+import im.bpu.gaisgc.Constants
 import im.bpu.gaisgc.Screen
 import im.bpu.gaisgc.State
 import java.io.ByteArrayOutputStream
@@ -21,12 +22,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object DriveService {
-	private const val APPLICATION_NAME = "GAISGC"
-	private const val TOKENS_DIRECTORY_PATH = "tokens"
-	private const val CREDENTIALS_FILE_PATH = "credentials.json"
-	private const val USER_ID = "user"
-	private const val PORT = 8888
-	private const val TIMEOUT_MS = 0
 	private val JSON_FACTORY = GsonFactory.getDefaultInstance()
 	private val SCOPES = listOf(DriveScopes.DRIVE)
 	private var driveService: Drive? = null
@@ -36,17 +31,18 @@ object DriveService {
 	}
 
 	private fun getCredentials(httpTransport: HttpTransport): Credential {
-		val file = File(CREDENTIALS_FILE_PATH)
-		if (!file.exists()) throw Exception("Resource not found: $CREDENTIALS_FILE_PATH")
+		val file = File(Constants.CREDENTIALS_FILE_PATH)
+		if (!file.exists())
+			throw Exception("Resource not found: ${Constants.CREDENTIALS_FILE_PATH}")
 		val clientSecrets =
 			GoogleClientSecrets.load(JSON_FACTORY, InputStreamReader(file.inputStream()))
 		val flow =
 			GoogleAuthorizationCodeFlow.Builder(httpTransport, JSON_FACTORY, clientSecrets, SCOPES)
-				.setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))
+				.setDataStoreFactory(FileDataStoreFactory(File(Constants.TOKENS_DIRECTORY_PATH)))
 				.setAccessType("offline")
 				.build()
-		val receiver = LocalServerReceiver.Builder().setPort(PORT).build()
-		val credential = AuthorizationCodeInstalledApp(flow, receiver).authorize(USER_ID)
+		val receiver = LocalServerReceiver.Builder().setPort(Constants.PORT).build()
+		val credential = AuthorizationCodeInstalledApp(flow, receiver).authorize(Constants.USER_ID)
 		State.isConnected = true
 		return credential
 	}
@@ -60,10 +56,10 @@ object DriveService {
 						Drive.Builder(httpTransport, JSON_FACTORY) { request ->
 								val credential = getCredentials(httpTransport)
 								credential.initialize(request)
-								request.connectTimeout = TIMEOUT_MS
-								request.readTimeout = TIMEOUT_MS
+								request.connectTimeout = Constants.TIMEOUT_MS
+								request.readTimeout = Constants.TIMEOUT_MS
 							}
-							.setApplicationName(APPLICATION_NAME)
+							.setApplicationName(Constants.APPLICATION_NAME)
 							.build()
 					driveService = service
 					service
@@ -73,7 +69,7 @@ object DriveService {
 
 	fun logout() {
 		try {
-			val tokensDirectoryPath = File(TOKENS_DIRECTORY_PATH)
+			val tokensDirectoryPath = File(Constants.TOKENS_DIRECTORY_PATH)
 			if (tokensDirectoryPath.exists()) {
 				tokensDirectoryPath.deleteRecursively()
 			}

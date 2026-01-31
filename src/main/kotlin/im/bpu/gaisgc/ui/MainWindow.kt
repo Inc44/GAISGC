@@ -68,6 +68,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import im.bpu.gaisgc.Constants
 import im.bpu.gaisgc.FilterMimeType
 import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.RelinkMethod
@@ -80,8 +81,6 @@ import im.bpu.gaisgc.manager.RelinkManager
 import im.bpu.gaisgc.service.DriveService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-
-private const val PREVIEW_PANE_WIDTH_DP = 560f
 
 @Composable
 fun ApplicationLayout() {
@@ -110,14 +109,14 @@ fun ApplicationLayout() {
 								RelinkManager.relink(matches)
 							}
 						},
-						previewPaneWidthPx = PREVIEW_PANE_WIDTH_DP * density,
+						previewPaneWidthPx = Constants.PREVIEW_PANE_WIDTH_DP * density,
 					)
 					if (
 						State.selectedDocument.isNotEmpty() ||
 							State.selectedImage != null ||
 							State.selectedPdf != null
 					) {
-						PreviewPane(modifier = Modifier.width(PREVIEW_PANE_WIDTH_DP.dp))
+						PreviewPane(modifier = Modifier.width(Constants.PREVIEW_PANE_WIDTH_DP.dp))
 					}
 				}
 			}

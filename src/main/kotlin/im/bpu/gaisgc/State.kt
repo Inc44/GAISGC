@@ -11,23 +11,14 @@ import kotlin.math.max
 import kotlin.math.min
 
 object State {
-	private const val CONFIG_FILE_PATH = "config.properties"
-	private const val TOKENS_DIRECTORY_PATH = "tokens"
-	private const val GAIS_PATH_PROPERTY = "gaisPath"
-	private const val DUPLICATES_PATH_PROPERTY = "duplicatesPath"
-	private const val MIDDLE_FRAME_PROPERTY = "middleFrame"
-	private const val CACHE_PROPERTY = "cache"
-	private const val RELINK_METHOD_PROPERTY = "relinkMethod"
-	private const val DEFAULT_GAIS_PATH = "Google AI Studio"
-	private const val DEFAULT_DUPLICATES_PATH = DEFAULT_GAIS_PATH
 	private val properties = Properties()
-	private val configFile = File(CONFIG_FILE_PATH)
+	private val configFile = File(Constants.CONFIG_FILE_PATH)
 	private val shiftRangeIds = mutableListOf<String>()
 	val cacheDirectoryPath = File(System.getProperty("user.home"), ".gaisgc/cache")
 	var isConnected by mutableStateOf(false)
 	var screen by mutableStateOf(Screen.MAIN)
-	var gaisPath by mutableStateOf(DEFAULT_GAIS_PATH)
-	var duplicatesPath by mutableStateOf(DEFAULT_DUPLICATES_PATH)
+	var gaisPath by mutableStateOf(Constants.DEFAULT_GAIS_PATH)
+	var duplicatesPath by mutableStateOf(Constants.DEFAULT_DUPLICATES_PATH)
 	var middleFrame by mutableStateOf(false)
 	var cache by mutableStateOf(false)
 	var relinkMethod by mutableStateOf(RelinkMethod.DIRECT)
@@ -48,33 +39,40 @@ object State {
 	init {
 		if (configFile.exists()) {
 			configFile.inputStream().use { properties.load(it) }
-			gaisPath = properties.getProperty(GAIS_PATH_PROPERTY, DEFAULT_GAIS_PATH)
+			gaisPath =
+				properties.getProperty(Constants.GAIS_PATH_PROPERTY, Constants.DEFAULT_GAIS_PATH)
 			duplicatesPath =
-				properties.getProperty(DUPLICATES_PATH_PROPERTY, DEFAULT_DUPLICATES_PATH)
-			middleFrame = properties.getProperty(MIDDLE_FRAME_PROPERTY, "false").toBoolean()
-			cache = properties.getProperty(CACHE_PROPERTY, "false").toBoolean()
+				properties.getProperty(
+					Constants.DUPLICATES_PATH_PROPERTY,
+					Constants.DEFAULT_DUPLICATES_PATH,
+				)
+			middleFrame =
+				properties.getProperty(Constants.MIDDLE_FRAME_PROPERTY, "false").toBoolean()
+			cache = properties.getProperty(Constants.CACHE_PROPERTY, "false").toBoolean()
 			relinkMethod =
 				try {
-					RelinkMethod.valueOf(properties.getProperty(RELINK_METHOD_PROPERTY, "DIRECT"))
+					RelinkMethod.valueOf(
+						properties.getProperty(Constants.RELINK_METHOD_PROPERTY, "DIRECT")
+					)
 				} catch (exception: Exception) {
 					RelinkMethod.PRETTY
 				}
 		}
 		isConnected =
-			File(TOKENS_DIRECTORY_PATH).exists() &&
-				File(TOKENS_DIRECTORY_PATH).walk().any { it.name == "StoredCredential" }
+			File(Constants.TOKENS_DIRECTORY_PATH).exists() &&
+				File(Constants.TOKENS_DIRECTORY_PATH).walk().any { it.name == "StoredCredential" }
 		if (!cacheDirectoryPath.exists()) cacheDirectoryPath.mkdirs()
 	}
 
 	fun saveGaisPath(path: String) {
 		gaisPath = path
-		properties.setProperty(GAIS_PATH_PROPERTY, path)
+		properties.setProperty(Constants.GAIS_PATH_PROPERTY, path)
 		saveProperties()
 	}
 
 	fun saveDuplicatesPath(path: String) {
 		duplicatesPath = path
-		properties.setProperty(DUPLICATES_PATH_PROPERTY, path)
+		properties.setProperty(Constants.DUPLICATES_PATH_PROPERTY, path)
 		saveProperties()
 	}
 
@@ -82,9 +80,9 @@ object State {
 		middleFrame = newMiddleFrame
 		cache = newCache
 		relinkMethod = newRelinkMethod
-		properties.setProperty(MIDDLE_FRAME_PROPERTY, middleFrame.toString())
-		properties.setProperty(CACHE_PROPERTY, cache.toString())
-		properties.setProperty(RELINK_METHOD_PROPERTY, relinkMethod.name)
+		properties.setProperty(Constants.MIDDLE_FRAME_PROPERTY, middleFrame.toString())
+		properties.setProperty(Constants.CACHE_PROPERTY, cache.toString())
+		properties.setProperty(Constants.RELINK_METHOD_PROPERTY, relinkMethod.name)
 		saveProperties()
 	}
 

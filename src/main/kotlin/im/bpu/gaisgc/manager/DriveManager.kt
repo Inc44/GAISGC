@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.model.File as DriveFile
+import im.bpu.gaisgc.Constants
 import im.bpu.gaisgc.DuplicateMatch
 import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.PdfDocument
@@ -26,9 +27,6 @@ import org.apache.pdfbox.rendering.PDFRenderer
 import org.jetbrains.skia.Image
 
 object DriveManager {
-	private const val MIME_PROMPT = "application/vnd.google-makersuite.prompt"
-	private const val MIME_FOLDER = "application/vnd.google-apps.folder"
-	private const val MAX_VIDEO_SIZE = 25 * 1024 * 1024
 
 	private suspend fun getFilesByMime(service: Drive, mime: String): List<DriveFile> {
 		val files = mutableListOf<DriveFile>()
@@ -85,7 +83,7 @@ object DriveManager {
 						.files()
 						.list()
 						.setQ(
-							"mimeType = '$MIME_FOLDER' and name = '$part' and '$parentId' in parents and trashed = false"
+							"mimeType = '${Constants.MIME_FOLDER}' and name = '$part' and '$parentId' in parents and trashed = false"
 						)
 						.setFields("files(id)")
 						.execute()
@@ -126,7 +124,7 @@ object DriveManager {
 			State.duplicateItems.clear()
 		}
 		val service = DriveService.getService()
-		val chatFiles = getFilesByMime(service, MIME_PROMPT)
+		val chatFiles = getFilesByMime(service, Constants.MIME_PROMPT)
 		val chatItems =
 			chatFiles.map {
 				Item(
@@ -304,7 +302,11 @@ object DriveManager {
 				val file = service.files().get(id).setFields("thumbnailLink").execute()
 				val link = file.thumbnailLink ?: return@withContext null
 				val bytes = DriveService.downloadLinkBytes(service, link)
-				if (State.middleFrame && size < MAX_VIDEO_SIZE && isVideoThumbnailBlack(bytes)) {
+				if (
+					State.middleFrame &&
+						size < Constants.MAX_VIDEO_SIZE &&
+						isVideoThumbnailBlack(bytes)
+				) {
 					val image = getVideoMiddleFrame(service, id)
 					image
 				} else {
