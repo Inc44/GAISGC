@@ -3,7 +3,7 @@ package im.bpu.gaisgc.manager
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.google.api.services.drive.Drive
-import im.bpu.gaisgc.manager.DriveManager.downloadFileBytes
+import im.bpu.gaisgc.service.DriveService
 import java.io.ByteArrayInputStream
 import java.io.File
 import javax.imageio.ImageIO
@@ -14,7 +14,7 @@ object MediaManager {
 	private const val LUMINANCE_THRESHOLD = 0.128
 
 	private fun srgb(channel: Double): Double {
-		return if (channel <= 0.04045) channel / 12.92 else Math.pow((channel + 0.055) / 1.055, 2.4)
+		return if (channel <= 0.04045) channel / 12.92 else ((channel + 0.055) / 1.055).pow(2.4)
 	}
 
 	private fun relativeLuminance(r: Double, g: Double, b: Double): Double {
@@ -76,7 +76,7 @@ object MediaManager {
 
 	suspend fun getVideoMiddleFrame(service: Drive, id: String): ImageBitmap? {
 		return try {
-			val bytes = downloadFileBytes(service, id)
+			val bytes = DriveService.downloadFileBytes(service, id)
 			val videoFile = File.createTempFile("gaisgc", ".mkv")
 			videoFile.writeBytes(bytes)
 			val imageFile = File.createTempFile("gaisgc", ".png")

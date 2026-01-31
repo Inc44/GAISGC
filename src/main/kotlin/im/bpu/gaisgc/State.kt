@@ -5,92 +5,10 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.toComposeImageBitmap
-import java.io.Closeable
 import java.io.File
 import java.util.Properties
 import kotlin.math.max
 import kotlin.math.min
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.apache.pdfbox.pdmodel.PDDocument
-import org.apache.pdfbox.rendering.PDFRenderer
-
-data class Item(
-	val createdTime: Long = 0L,
-	val fileExtension: String? = null,
-	val id: String,
-	val mimeType: String = "",
-	val name: String,
-	val sha256Checksum: String? = null,
-	val size: Long = -1L,
-	val isNotFound: Boolean = false,
-	val subItems: List<Item> = emptyList(),
-)
-
-data class DuplicateMatch(val chat: Item, val original: Item, val duplicate: Item)
-
-class PdfDocument(private val document: PDDocument, firstPage: ImageBitmap) : Closeable {
-	val pages = mutableStateListOf(firstPage)
-	@Volatile private var isClosed = false
-
-	fun renderRemaining(scope: CoroutineScope, previewPaneWidthPx: Float) {
-		scope.launch(Dispatchers.IO) {
-			val renderer = PDFRenderer(document)
-			for (i in 1 until document.numberOfPages) {
-				if (isClosed) break
-				val bitmap =
-					synchronized(document) {
-						if (isClosed) return@synchronized null
-						val pdfPageWidthPts = document.getPage(i).mediaBox.width
-						val dpi = (previewPaneWidthPx * 72f) / pdfPageWidthPts
-						renderer.renderImageWithDPI(i, dpi).toComposeImageBitmap()
-					}
-				if (bitmap != null) {
-					withContext(Dispatchers.Main) { if (!isClosed) pages.add(bitmap) }
-				}
-			}
-		}
-	}
-
-	override fun close() {
-		isClosed = true
-		synchronized(document) { document.close() }
-	}
-}
-
-enum class Screen {
-	MAIN,
-	UNLINKED,
-	RELINKER,
-	SETTINGS,
-}
-
-enum class FilterMimeType {
-	ALL,
-	DOCUMENT,
-	PHOTO,
-	PDF,
-	VIDEO,
-	AUDIO,
-	OTHER,
-}
-
-enum class Sort {
-	DATE_DESC,
-	DATE_ASC,
-	NAME_ASC,
-	NAME_DESC,
-}
-
-enum class RelinkMethod {
-	DIRECT,
-	REGEX,
-	PRETTY,
-	JS_BEAUTIFY,
-}
 
 object State {
 	private const val CONFIG_FILE_PATH = "config.properties"

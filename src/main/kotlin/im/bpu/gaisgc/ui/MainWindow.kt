@@ -74,7 +74,10 @@ import im.bpu.gaisgc.RelinkMethod
 import im.bpu.gaisgc.Screen
 import im.bpu.gaisgc.Sort
 import im.bpu.gaisgc.State
+import im.bpu.gaisgc.manager.CacheManager
 import im.bpu.gaisgc.manager.DriveManager
+import im.bpu.gaisgc.manager.RelinkManager
+import im.bpu.gaisgc.service.DriveService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -104,7 +107,7 @@ fun ApplicationLayout() {
 									State.duplicateItems.filter {
 										"${it.chat.id}|${it.original.id}" in State.selectedIds
 									}
-								DriveManager.relink(matches)
+								RelinkManager.relink(matches)
 							}
 						},
 						previewPaneWidthPx = PREVIEW_PANE_WIDTH_DP * density,
@@ -637,13 +640,13 @@ private fun SettingsPanel() {
 			Spacer(Modifier.height(4.dp))
 		}
 		Button(
-			onClick = { DriveManager.clearCache() },
+			onClick = { CacheManager.clearCache() },
 			colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 		) {
 			Text("Clear Cache")
 		}
 		Button(
-			onClick = { DriveManager.logout() },
+			onClick = { DriveService.logout() },
 			colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 		) {
 			Text("Log out")
