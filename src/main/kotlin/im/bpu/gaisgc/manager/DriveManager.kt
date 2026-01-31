@@ -92,6 +92,22 @@ object DriveManager {
 		}
 	}
 
+	fun logout() {
+		try {
+			val tokensDirectoryPath = File(TOKENS_DIRECTORY_PATH)
+			if (tokensDirectoryPath.exists()) {
+				tokensDirectoryPath.deleteRecursively()
+			}
+			driveService = null
+			State.clearSelection()
+			State.items.clear()
+			State.unlinkedItems.clear()
+			State.duplicateItems.clear()
+		} catch (exception: Exception) {
+			exception.printStackTrace()
+		}
+	}
+
 	private suspend fun getFilesByMime(service: Drive, mime: String): List<DriveFile> {
 		val files = mutableListOf<DriveFile>()
 		var pageToken: String? = null
@@ -398,7 +414,7 @@ object DriveManager {
 				val file = service.files().get(id).setFields("thumbnailLink").execute()
 				val link = file.thumbnailLink ?: return@withContext null
 				val bytes = downloadLinkBytes(service, link)
-				if (size < MAX_VIDEO_SIZE && isVideoThumbnailBlack(bytes)) {
+				if (State.middleFrame && size < MAX_VIDEO_SIZE && isVideoThumbnailBlack(bytes)) {
 					val image = getVideoMiddleFrame(service, id)
 					image
 				} else {

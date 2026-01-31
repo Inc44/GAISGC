@@ -27,9 +27,15 @@ import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -64,6 +70,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import im.bpu.gaisgc.FilterMimeType
 import im.bpu.gaisgc.Item
+import im.bpu.gaisgc.RelinkMethod
 import im.bpu.gaisgc.Screen
 import im.bpu.gaisgc.Sort
 import im.bpu.gaisgc.State
@@ -182,6 +189,15 @@ private fun NavigationSideBar() {
 			icon = { Icon(Icons.Filled.ContentCopy, contentDescription = null) },
 			label = { Text("Relinker") },
 		)
+		NavigationRailItem(
+			selected = State.screen == Screen.SETTINGS,
+			onClick = {
+				State.screen = Screen.SETTINGS
+				State.clearSelection()
+			},
+			icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+			label = { Text("Settings") },
+		)
 	}
 }
 
@@ -223,6 +239,7 @@ private fun ContentArea(
 				Screen.MAIN -> ChatList()
 				Screen.UNLINKED -> UnlinkedList(previewPaneWidthPx)
 				Screen.RELINKER -> RelinkerList(previewPaneWidthPx)
+				Screen.SETTINGS -> SettingsPanel()
 			}
 		}
 	}
@@ -362,13 +379,15 @@ private fun ActionButtons(
 	onRelink: () -> Unit,
 	showFilter: Boolean,
 ) {
-	if (showFilter) {
-		IconButton(onClick = onToggleFilters) {
-			Icon(Icons.Filled.FilterList, contentDescription = "Filters")
+	if (State.screen != Screen.SETTINGS) {
+		if (showFilter) {
+			IconButton(onClick = onToggleFilters) {
+				Icon(Icons.Filled.FilterList, contentDescription = "Filters")
+			}
+			Spacer(Modifier.width(8.dp))
 		}
-		Spacer(Modifier.width(8.dp))
+		Button(onClick = onRefresh) { Text("Refresh") }
 	}
-	Button(onClick = onRefresh) { Text("Refresh") }
 	if (State.selectedIds.isNotEmpty()) {
 		Spacer(Modifier.width(8.dp))
 		if (State.screen == Screen.RELINKER) {
@@ -447,7 +466,7 @@ private fun PathInput(
 @Composable
 private fun Title(modifier: Modifier) {
 	Text(
-		text = "GAISGC",
+		text = if (State.screen == Screen.SETTINGS) "Settings" else "GAISGC",
 		style = MaterialTheme.typography.headlineSmall,
 		fontWeight = FontWeight.Bold,
 		modifier = modifier,
@@ -507,6 +526,92 @@ private fun RelinkerList(previewPaneWidthPx: Float) {
 				},
 				isOpened = match.duplicate.id == State.previewId,
 			)
+		}
+	}
+}
+
+private val RelinkMethod.displayName: String
+	get() =
+		when (this) {
+			RelinkMethod.DIRECT -> "Direct"
+			RelinkMethod.REGEX -> "Regex"
+			RelinkMethod.PRETTY -> "Pretty"
+			RelinkMethod.JS_BEAUTIFY -> "js-beautify"
+		}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsPanel() {
+	var relinkMenuExpanded by remember { mutableStateOf(false) }
+	Column(
+		modifier =
+			Modifier.fillMaxSize()
+				.padding(16.dp)
+				.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp)),
+		verticalArrangement = Arrangement.spacedBy(16.dp),
+	) {
+		Row(verticalAlignment = Alignment.CenterVertically) {
+			Checkbox(
+				checked = State.middleFrame,
+				onCheckedChange = { State.saveSettings(it, State.cache, State.relinkMethod) },
+			)
+			Spacer(Modifier.width(8.dp))
+			Text("Use the middle frame of the video if a black thumbnail is detected")
+		}
+		Row(verticalAlignment = Alignment.CenterVertically) {
+			Checkbox(
+				checked = State.cache,
+				onCheckedChange = { State.saveSettings(State.middleFrame, it, State.relinkMethod) },
+			)
+			Spacer(Modifier.width(8.dp))
+			Text("Use cached chats if the SHA256 checksum has not changed.")
+		}
+		Column {
+			Text(text = "Relink method", style = MaterialTheme.typography.bodyMedium)
+			Spacer(Modifier.height(4.dp))
+			ExposedDropdownMenuBox(
+				expanded = relinkMenuExpanded,
+				onExpandedChange = { relinkMenuExpanded = it },
+			) {
+				OutlinedTextField(
+					value = State.relinkMethod.displayName,
+					onValueChange = {},
+					readOnly = true,
+					trailingIcon = {
+						ExposedDropdownMenuDefaults.TrailingIcon(expanded = relinkMenuExpanded)
+					},
+					colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+					modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+				)
+				ExposedDropdownMenu(
+					expanded = relinkMenuExpanded,
+					onDismissRequest = { relinkMenuExpanded = false },
+				) {
+					RelinkMethod.entries.forEach { method ->
+						DropdownMenuItem(
+							text = { Text(method.displayName) },
+							onClick = {
+								State.saveSettings(State.middleFrame, State.cache, method)
+								relinkMenuExpanded = false
+							},
+							contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+						)
+					}
+				}
+			}
+			Spacer(Modifier.height(4.dp))
+		}
+		Button(
+			onClick = {},
+			colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+		) {
+			Text("Clear Cache")
+		}
+		Button(
+			onClick = { DriveManager.logout() },
+			colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+		) {
+			Text("Log out")
 		}
 	}
 }

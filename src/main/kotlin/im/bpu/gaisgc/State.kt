@@ -65,6 +65,7 @@ enum class Screen {
 	MAIN,
 	UNLINKED,
 	RELINKER,
+	SETTINGS,
 }
 
 enum class FilterMimeType {
@@ -84,10 +85,20 @@ enum class Sort {
 	NAME_DESC,
 }
 
+enum class RelinkMethod {
+	DIRECT,
+	REGEX,
+	PRETTY,
+	JS_BEAUTIFY,
+}
+
 object State {
 	private const val CONFIG_FILE_PATH = "config.properties"
 	private const val GAIS_PATH_PROPERTY = "gaisPath"
 	private const val DUPLICATES_PATH_PROPERTY = "duplicatesPath"
+	private const val MIDDLE_FRAME_PROPERTY = "middleFrame"
+	private const val CACHE_PROPERTY = "cache"
+	private const val RELINK_METHOD_PROPERTY = "relinkMethod"
 	private const val DEFAULT_GAIS_PATH = "Google AI Studio"
 	private const val DEFAULT_DUPLICATES_PATH = DEFAULT_GAIS_PATH
 	private val properties = Properties()
@@ -96,6 +107,9 @@ object State {
 	var screen by mutableStateOf(Screen.MAIN)
 	var gaisPath by mutableStateOf(DEFAULT_GAIS_PATH)
 	var duplicatesPath by mutableStateOf(DEFAULT_DUPLICATES_PATH)
+	var middleFrame by mutableStateOf(false)
+	var cache by mutableStateOf(false)
+	var relinkMethod by mutableStateOf(RelinkMethod.DIRECT)
 	val items = mutableStateListOf<Item>()
 	val unlinkedItems = mutableStateListOf<Item>()
 	val duplicateItems = mutableStateListOf<DuplicateMatch>()
@@ -116,6 +130,14 @@ object State {
 			gaisPath = properties.getProperty(GAIS_PATH_PROPERTY, DEFAULT_GAIS_PATH)
 			duplicatesPath =
 				properties.getProperty(DUPLICATES_PATH_PROPERTY, DEFAULT_DUPLICATES_PATH)
+			middleFrame = properties.getProperty(MIDDLE_FRAME_PROPERTY, "false").toBoolean()
+			cache = properties.getProperty(CACHE_PROPERTY, "false").toBoolean()
+			relinkMethod =
+				try {
+					RelinkMethod.valueOf(properties.getProperty(RELINK_METHOD_PROPERTY, "DIRECT"))
+				} catch (exception: Exception) {
+					RelinkMethod.PRETTY
+				}
 		}
 	}
 
@@ -128,6 +150,16 @@ object State {
 	fun saveDuplicatesPath(path: String) {
 		duplicatesPath = path
 		properties.setProperty(DUPLICATES_PATH_PROPERTY, path)
+		saveProperties()
+	}
+
+	fun saveSettings(newMiddleFrame: Boolean, newCache: Boolean, newRelinkMethod: RelinkMethod) {
+		middleFrame = newMiddleFrame
+		cache = newCache
+		relinkMethod = newRelinkMethod
+		properties.setProperty(MIDDLE_FRAME_PROPERTY, middleFrame.toString())
+		properties.setProperty(CACHE_PROPERTY, cache.toString())
+		properties.setProperty(RELINK_METHOD_PROPERTY, relinkMethod.name)
 		saveProperties()
 	}
 
