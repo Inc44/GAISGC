@@ -1,4 +1,4 @@
-package im.bpu.gaisgc
+package im.bpu.gaisgc.model
 
 object Constants {
 	const val APPLICATION_NAME = "GAISGC"

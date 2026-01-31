@@ -12,9 +12,9 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
-import im.bpu.gaisgc.Constants
-import im.bpu.gaisgc.Screen
 import im.bpu.gaisgc.State
+import im.bpu.gaisgc.model.Constants
+import im.bpu.gaisgc.model.Screen
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStreamReader
@@ -75,7 +75,7 @@ object DriveService {
 			}
 			driveService = null
 			State.isConnected = false
-			State.screen = im.bpu.gaisgc.Screen.MAIN
+			State.screen = Screen.MAIN
 			State.clearSelection()
 			State.items.clear()
 			State.unlinkedItems.clear()

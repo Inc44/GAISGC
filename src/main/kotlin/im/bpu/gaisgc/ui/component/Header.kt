@@ -1,4 +1,4 @@
-package im.bpu.gaisgc.ui.components
+package im.bpu.gaisgc.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,8 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import im.bpu.gaisgc.Screen
 import im.bpu.gaisgc.State
+import im.bpu.gaisgc.model.Screen
 
 @Composable
 fun Header(

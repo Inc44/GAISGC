@@ -1,7 +1,7 @@
 package im.bpu.gaisgc.manager
 
-import im.bpu.gaisgc.DuplicateMatch
-import im.bpu.gaisgc.Item
+import im.bpu.gaisgc.model.DuplicateMatch
+import im.bpu.gaisgc.model.Item
 
 object DuplicateManager {
 

@@ -2,8 +2,8 @@ package im.bpu.gaisgc.manager
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.State
+import im.bpu.gaisgc.model.Item
 import java.io.File
 
 object CacheManager {

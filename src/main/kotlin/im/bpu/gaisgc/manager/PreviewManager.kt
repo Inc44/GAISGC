@@ -2,12 +2,12 @@ package im.bpu.gaisgc.manager
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import im.bpu.gaisgc.Constants
-import im.bpu.gaisgc.Item
-import im.bpu.gaisgc.PdfDocument
 import im.bpu.gaisgc.State
 import im.bpu.gaisgc.manager.MediaManager.getVideoMiddleFrame
 import im.bpu.gaisgc.manager.MediaManager.isVideoThumbnailBlack
+import im.bpu.gaisgc.model.Constants
+import im.bpu.gaisgc.model.Item
+import im.bpu.gaisgc.model.PdfDocument
 import im.bpu.gaisgc.service.DriveService
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.CoroutineScope

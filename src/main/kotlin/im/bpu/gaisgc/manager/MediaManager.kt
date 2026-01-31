@@ -3,7 +3,7 @@ package im.bpu.gaisgc.manager
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.google.api.services.drive.Drive
-import im.bpu.gaisgc.Constants
+import im.bpu.gaisgc.model.Constants
 import im.bpu.gaisgc.service.DriveService
 import java.io.ByteArrayInputStream
 import java.io.File

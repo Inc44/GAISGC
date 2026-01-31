@@ -5,6 +5,14 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
+import im.bpu.gaisgc.model.Constants
+import im.bpu.gaisgc.model.DuplicateMatch
+import im.bpu.gaisgc.model.FilterMimeType
+import im.bpu.gaisgc.model.Item
+import im.bpu.gaisgc.model.PdfDocument
+import im.bpu.gaisgc.model.RelinkMethod
+import im.bpu.gaisgc.model.Screen
+import im.bpu.gaisgc.model.Sort
 import java.io.File
 import java.util.Properties
 import kotlin.math.max

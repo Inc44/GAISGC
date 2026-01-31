@@ -1,4 +1,4 @@
-package im.bpu.gaisgc.ui.components
+package im.bpu.gaisgc.ui.component
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -13,7 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import im.bpu.gaisgc.Screen
+import im.bpu.gaisgc.model.Screen
 import im.bpu.gaisgc.State
 
 @Composable

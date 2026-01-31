@@ -1,4 +1,4 @@
-package im.bpu.gaisgc.ui.components
+package im.bpu.gaisgc.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,9 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import im.bpu.gaisgc.FilterMimeType
-import im.bpu.gaisgc.Sort
 import im.bpu.gaisgc.State
+import im.bpu.gaisgc.model.FilterMimeType
+import im.bpu.gaisgc.model.Sort
 
 @Composable
 fun FilterPanel() {

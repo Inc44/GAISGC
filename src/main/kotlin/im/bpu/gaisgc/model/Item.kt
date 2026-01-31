@@ -1,4 +1,4 @@
-package im.bpu.gaisgc
+package im.bpu.gaisgc.model
 
 data class Item(
 	val createdTime: Long = 0L,
@@ -11,5 +11,3 @@ data class Item(
 	val isNotFound: Boolean = false,
 	val subItems: List<Item> = emptyList(),
 )
-
-data class DuplicateMatch(val chat: Item, val original: Item, val duplicate: Item)

@@ -1,8 +1,8 @@
 package im.bpu.gaisgc.manager
 
 import com.google.api.services.drive.model.File as DriveFile
-import im.bpu.gaisgc.Constants
-import im.bpu.gaisgc.Item
+import im.bpu.gaisgc.model.Constants
+import im.bpu.gaisgc.model.Item
 import im.bpu.gaisgc.State
 import im.bpu.gaisgc.parser.ChatParser
 import im.bpu.gaisgc.service.DriveService

@@ -3,8 +3,8 @@ package im.bpu.gaisgc.manager
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.model.File as DriveFile
-import im.bpu.gaisgc.Constants
-import im.bpu.gaisgc.Item
+import im.bpu.gaisgc.model.Constants
+import im.bpu.gaisgc.model.Item
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

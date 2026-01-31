@@ -1,4 +1,4 @@
-package im.bpu.gaisgc.ui.components
+package im.bpu.gaisgc.ui.component
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,9 +7,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.State
 import im.bpu.gaisgc.manager.PreviewManager
+import im.bpu.gaisgc.model.Item
 import kotlinx.coroutines.launch
 
 @Composable

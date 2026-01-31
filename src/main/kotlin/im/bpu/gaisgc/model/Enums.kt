@@ -1,4 +1,4 @@
-package im.bpu.gaisgc
+package im.bpu.gaisgc.model
 
 enum class Screen {
 	MAIN,

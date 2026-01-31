@@ -1,4 +1,4 @@
-package im.bpu.gaisgc
+package im.bpu.gaisgc.model
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.ImageBitmap

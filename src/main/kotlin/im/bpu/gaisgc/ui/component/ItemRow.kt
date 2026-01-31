@@ -1,4 +1,4 @@
-package im.bpu.gaisgc.ui.components
+package im.bpu.gaisgc.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,7 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
-import im.bpu.gaisgc.Item
+import im.bpu.gaisgc.model.Item
 
 @Composable
 fun ItemRow(

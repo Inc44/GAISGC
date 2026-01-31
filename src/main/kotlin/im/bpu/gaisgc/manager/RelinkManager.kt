@@ -4,10 +4,10 @@ import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.json.GenericJson
 import com.google.api.services.drive.model.File as DriveFile
 import com.google.gson.JsonParser
-import im.bpu.gaisgc.Constants
-import im.bpu.gaisgc.DuplicateMatch
-import im.bpu.gaisgc.RelinkMethod
 import im.bpu.gaisgc.State
+import im.bpu.gaisgc.model.Constants
+import im.bpu.gaisgc.model.DuplicateMatch
+import im.bpu.gaisgc.model.RelinkMethod
 import im.bpu.gaisgc.service.DriveService
 import java.io.ByteArrayOutputStream
 import java.io.File
