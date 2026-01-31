@@ -26,6 +26,7 @@ import com.google.gson.stream.JsonToken
 import im.bpu.gaisgc.DuplicateMatch
 import im.bpu.gaisgc.Item
 import im.bpu.gaisgc.PdfDocument
+import im.bpu.gaisgc.RelinkMethod
 import im.bpu.gaisgc.State
 import im.bpu.gaisgc.manager.MediaManager.getVideoMiddleFrame
 import im.bpu.gaisgc.manager.MediaManager.isVideoThumbnailBlack
@@ -543,34 +544,69 @@ object DriveManager {
 				try {
 					val baos = ByteArrayOutputStream()
 					service.files().get(chatId).executeMediaAndDownloadTo(baos)
-					val content = baos.toString("UTF-8")
-					val chat = JSON_FACTORY.fromString(content, GenericJson::class.java)
+					var content = baos.toString("UTF-8")
 					var modified = false
-					val chunkedPrompt = chat["chunkedPrompt"] as? Map<*, *>
-					val chunks = chunkedPrompt?.get("chunks") as? List<*>
-					chunks?.forEach { chunk ->
-						val chunkMap = chunk as? MutableMap<String, Any?>
-						if (chunkMap != null) {
-							listOf("driveDocument", "driveImage", "driveVideo").forEach { key ->
-								val driveReference = chunkMap[key] as? MutableMap<String, Any?>
-								val driveReferenceId = driveReference?.get("id") as? String
-								if (driveReferenceId != null) {
-									val match =
-										chatMatches.find { it.original.id == driveReferenceId }
-									if (match != null) {
-										driveReference["id"] = match.duplicate.id
-										modified = true
+					when (State.relinkMethod) {
+						RelinkMethod.DIRECT -> {
+							chatMatches.forEach { match ->
+								val pattern = "\"id\": \"${match.original.id}\""
+								val replacement = "\"id\": \"${match.duplicate.id}\""
+								if (content.contains(pattern)) {
+									content = content.replace(pattern, replacement)
+									modified = true
+								}
+							}
+						}
+						RelinkMethod.REGEX -> {
+							chatMatches.forEach { match ->
+								val pattern = Regex("\"id\"\\s*:\\s*\"${match.original.id}\"")
+								val replacement = "\"id\": \"${match.duplicate.id}\""
+								if (pattern.containsMatchIn(content)) {
+									content = content.replace(pattern, replacement)
+									modified = true
+								}
+							}
+						}
+						RelinkMethod.PRETTY,
+						RelinkMethod.JS_BEAUTIFY -> {
+							val chat = JSON_FACTORY.fromString(content, GenericJson::class.java)
+							val chunkedPrompt = chat["chunkedPrompt"] as? MutableMap<String, Any?>
+							val chunks = chunkedPrompt?.get("chunks") as? List<*>
+							chunks?.forEach { chunk ->
+								val chunkMap = chunk as? MutableMap<String, Any?>
+								if (chunkMap != null) {
+									listOf("driveDocument", "driveImage", "driveVideo").forEach {
+										key ->
+										val driveReference =
+											chunkMap[key] as? MutableMap<String, Any?>
+										val driveReferenceId = driveReference?.get("id") as? String
+										if (driveReferenceId != null) {
+											val match =
+												chatMatches.find {
+													it.original.id == driveReferenceId
+												}
+											if (match != null) {
+												driveReference["id"] = match.duplicate.id
+												modified = true
+											}
+										}
 									}
 								}
+							}
+							if (modified) {
+								val contentString = JSON_FACTORY.toString(chat)
+								content =
+									if (State.relinkMethod == RelinkMethod.PRETTY) {
+										val json = JsonParser.parseString(contentString)
+										gson.toJson(json)
+									} else {
+										setJsBeautifyPrinting(contentString)
+									}
 							}
 						}
 					}
 					if (modified) {
-						var contentString = JSON_FACTORY.toString(chat)
-						val json = JsonParser.parseString(contentString)
-						val gson = GsonBuilder().setPrettyPrinting().create()
-						contentString = gson.toJson(json)
-						val mediaContent = ByteArrayContent.fromString(MIME_PROMPT, contentString)
+						val mediaContent = ByteArrayContent.fromString(MIME_PROMPT, content)
 						val file = service.files().get(chatId).setFields("modifiedTime").execute()
 						val chatModifiedTime = file.modifiedTime
 						val metadataContent = DriveFile()
@@ -588,6 +624,22 @@ object DriveManager {
 				}
 			}
 		}
+
+	private fun setJsBeautifyPrinting(json: String): String {
+		return try {
+			val jsBeautifyProcess = ProcessBuilder("js-beautify", "-s", "2").start()
+			val jsBeautifyOS = jsBeautifyProcess.outputStream
+			val bytes = json.toByteArray()
+			jsBeautifyOS.use { it.write(bytes) }
+			val jsBeautifyIS = jsBeautifyProcess.inputStream
+			val bytesFormatted = jsBeautifyIS.use { it.readBytes() }
+			val jsonFormatted = bytesFormatted.toString(Charsets.UTF_8)
+			jsBeautifyProcess.waitFor()
+			jsonFormatted.ifEmpty { json }
+		} catch (exception: Exception) {
+			json
+		}
+	}
 
 	suspend fun loadPreview(item: Item, scope: CoroutineScope, previewPaneWidthPx: Float) {
 		State.previewId = item.id
