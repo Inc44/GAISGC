@@ -4,7 +4,6 @@ import com.google.api.client.util.DateTime
 import com.google.api.services.drive.model.File as DriveFile
 import im.bpu.gaisgc.State
 import im.bpu.gaisgc.model.Constants
-import im.bpu.gaisgc.model.DuplicateMatch
 import im.bpu.gaisgc.model.Item
 import im.bpu.gaisgc.parser.ChatParser
 import im.bpu.gaisgc.service.DriveService
@@ -148,18 +147,16 @@ object DriveManager {
 			}
 		}
 
-	suspend fun update(id: String, name: String, createdTime: Long, modifiedTime: Long) =
+	suspend fun update(id: String, name: String, modifiedTime: Long) =
 		withContext(Dispatchers.IO) {
 			try {
 				val service = DriveService.getService()
 				val file = DriveFile()
 				file.name = name
-				file.createdTime = DateTime(createdTime)
 				file.modifiedTime = DateTime(modifiedTime)
 				service.files().update(id, file).execute()
 			} catch (exception: Exception) {
 				exception.printStackTrace()
 			}
 		}
-
 }

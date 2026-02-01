@@ -97,11 +97,10 @@ fun EditDialog(item: Item, onDismiss: () -> Unit) {
 	val scope = rememberCoroutineScope()
 	val dateTimeFormatter = remember { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()) }
 	var name by remember { mutableStateOf(item.name) }
-	var createdTimeStr by remember {
-		mutableStateOf(
+	val createdTimeStr =
+		remember {
 			if (item.createdTime > 0) dateTimeFormatter.format(Date(item.createdTime)) else ""
-		)
-	}
+		}
 	var modifiedTimeStr by remember {
 		mutableStateOf(
 			if (item.modifiedTime > 0) dateTimeFormatter.format(Date(item.modifiedTime)) else ""
@@ -123,7 +122,8 @@ fun EditDialog(item: Item, onDismiss: () -> Unit) {
 				Spacer(Modifier.height(8.dp))
 				OutlinedTextField(
 					value = createdTimeStr,
-					onValueChange = { createdTimeStr = it },
+					onValueChange = {},
+					readOnly = true,
 					label = { Text("Created Time") },
 					singleLine = true,
 					modifier = Modifier.fillMaxWidth(),
@@ -142,11 +142,8 @@ fun EditDialog(item: Item, onDismiss: () -> Unit) {
 			TextButton(
 				onClick = {
 					try {
-						val createdTime = dateTimeFormatter.parse(createdTimeStr).time
 						val modifiedTime = dateTimeFormatter.parse(modifiedTimeStr).time
-						scope.launch {
-							DriveManager.update(item.id, name, createdTime, modifiedTime)
-						}
+						scope.launch { DriveManager.update(item.id, name, modifiedTime) }
 						onDismiss()
 					} catch (exception: Exception) {
 						exception.printStackTrace()
