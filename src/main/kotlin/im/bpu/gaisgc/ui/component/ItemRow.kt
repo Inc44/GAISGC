@@ -65,7 +65,7 @@ fun ItemRow(
 			.combinedClickable(
 				onClick = { onClick?.invoke() },
 				onDoubleClick =
-					if (canEdit) {
+					if (canEdit && !item.isNotFound) {
 						{ showEditDialog = true }
 					} else null,
 			)
