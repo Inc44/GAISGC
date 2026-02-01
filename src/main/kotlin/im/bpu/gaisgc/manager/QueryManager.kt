@@ -79,7 +79,7 @@ object QueryManager {
 			parentId
 		}
 
-	suspend fun getFilesByParent(service: Drive, parentId: String): List<DriveFile> {
+	suspend fun getChildFilesByParent(service: Drive, parentId: String): List<DriveFile> {
 		val files = mutableListOf<DriveFile>()
 		var pageToken: String? = null
 		do {
@@ -98,6 +98,24 @@ object QueryManager {
 			result.files?.let { files.addAll(it) }
 			pageToken = result.nextPageToken
 		} while (pageToken != null)
+		return files
+	}
+
+	suspend fun getDescendantFilesByParent(service: Drive, parentId: String): List<DriveFile> {
+		val files = mutableListOf<DriveFile>()
+		val queue = ArrayDeque<String>()
+		queue.add(parentId)
+		while (queue.isNotEmpty()) {
+			val parentId = queue.removeFirst()
+			val children = getChildFilesByParent(service, parentId)
+			children.forEach { child ->
+				if (child.mimeType == Constants.MIME_FOLDER) {
+					queue.add(child.id)
+				} else {
+					files.add(child)
+				}
+			}
+		}
 		return files
 	}
 }

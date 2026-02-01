@@ -80,7 +80,7 @@ object DriveManager {
 		val chatIds = chatFiles.map { it.id }.toSet()
 		val gaisFolderId = QueryManager.getFolderId(service, State.gaisPath)
 		if (gaisFolderId != null) {
-			val gaisFolderFiles = QueryManager.getFilesByParent(service, gaisFolderId)
+			val gaisFolderFiles = QueryManager.getChildFilesByParent(service, gaisFolderId)
 			val gaisFolderItems =
 				gaisFolderFiles.map {
 					Item(
@@ -102,7 +102,8 @@ object DriveManager {
 		}
 		val duplicatesFolderId = QueryManager.getFolderId(service, State.duplicatesPath)
 		if (duplicatesFolderId != null) {
-			val duplicatesFolderFiles = QueryManager.getFilesByParent(service, duplicatesFolderId)
+			val duplicatesFolderFiles =
+				QueryManager.getDescendantFilesByParent(service, duplicatesFolderId)
 			val duplicatesFolderItems =
 				duplicatesFolderFiles.map {
 					Item(
