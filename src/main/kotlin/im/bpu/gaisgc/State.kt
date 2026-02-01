@@ -43,6 +43,7 @@ object State {
 	var isShiftPressed by mutableStateOf(false)
 	var lastSelectedId by mutableStateOf<String?>(null)
 	var previewId by mutableStateOf<String?>(null)
+	var editId by mutableStateOf<String?>(null)
 
 	init {
 		if (configFile.exists()) {
@@ -209,6 +210,7 @@ object State {
 		selectedIds.clear()
 		lastSelectedId = null
 		previewId = null
+		editId = null
 		shiftRangeIds.clear()
 		selectedDocument.clear()
 		selectedImage = null

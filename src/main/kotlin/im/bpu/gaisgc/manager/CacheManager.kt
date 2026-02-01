@@ -25,6 +25,7 @@ object CacheManager {
 	fun saveToCache(
 		createdTime: Long,
 		id: String,
+		modifiedTime: Long,
 		name: String,
 		sha256Checksum: String?,
 		subItems: List<Item>,
@@ -35,6 +36,7 @@ object CacheManager {
 				Item(
 					createdTime = createdTime,
 					id = id,
+					modifiedTime = modifiedTime,
 					name = name,
 					sha256Checksum = sha256Checksum,
 					subItems = subItems,

@@ -20,7 +20,9 @@ object QueryManager {
 						.files()
 						.list()
 						.setQ("mimeType = '$mime' and trashed = false")
-						.setFields("nextPageToken, files(createdTime, id, name, sha256Checksum)")
+						.setFields(
+							"nextPageToken, files(createdTime, id, modifiedTime, name, sha256Checksum)"
+						)
 						.setPageToken(pageToken)
 						.execute()
 				}
@@ -37,7 +39,7 @@ object QueryManager {
 					.files()
 					.get(fileId)
 					.setFields(
-						"createdTime, fileExtension, id, mimeType, name, sha256Checksum, size"
+						"createdTime, fileExtension, id, mimeType, modifiedTime, name, sha256Checksum, size"
 					)
 					.execute()
 			Item(
@@ -45,6 +47,7 @@ object QueryManager {
 				fileExtension = file.fileExtension,
 				id = file.id,
 				mimeType = file.mimeType ?: "",
+				modifiedTime = file.modifiedTime?.value ?: 0L,
 				name = file.name,
 				sha256Checksum = file.sha256Checksum,
 				size = file.getSize() ?: 0L,
@@ -87,7 +90,7 @@ object QueryManager {
 						.list()
 						.setQ("'$parentId' in parents and trashed = false")
 						.setFields(
-							"nextPageToken, files(createdTime, fileExtension, id, mimeType, name, sha256Checksum, size)"
+							"nextPageToken, files(createdTime, fileExtension, id, mimeType, modifiedTime, name, sha256Checksum, size)"
 						)
 						.setPageToken(pageToken)
 						.execute()

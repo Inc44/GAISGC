@@ -1,9 +1,11 @@
 package im.bpu.gaisgc.manager
 
+import com.google.api.client.util.DateTime
 import com.google.api.services.drive.model.File as DriveFile
-import im.bpu.gaisgc.model.Constants
-import im.bpu.gaisgc.model.Item
 import im.bpu.gaisgc.State
+import im.bpu.gaisgc.model.Constants
+import im.bpu.gaisgc.model.DuplicateMatch
+import im.bpu.gaisgc.model.Item
 import im.bpu.gaisgc.parser.ChatParser
 import im.bpu.gaisgc.service.DriveService
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +31,7 @@ object DriveManager {
 				Item(
 					createdTime = it.createdTime?.value ?: 0L,
 					id = it.id,
+					modifiedTime = it.modifiedTime?.value ?: 0L,
 					name = it.name,
 					sha256Checksum = it.sha256Checksum,
 				)
@@ -52,6 +55,7 @@ object DriveManager {
 								CacheManager.saveToCache(
 									file.createdTime?.value ?: 0L,
 									file.id,
+									file.modifiedTime?.value ?: 0L,
 									file.name,
 									file.sha256Checksum,
 									fetchedSubItems,
@@ -63,6 +67,7 @@ object DriveManager {
 							Item(
 								createdTime = file.createdTime?.value ?: 0L,
 								id = file.id,
+								modifiedTime = file.modifiedTime?.value ?: 0L,
 								name = file.name,
 								sha256Checksum = file.sha256Checksum,
 								subItems = subItems,
@@ -84,6 +89,7 @@ object DriveManager {
 						fileExtension = it.fileExtension,
 						id = it.id,
 						mimeType = it.mimeType ?: "",
+						modifiedTime = it.modifiedTime?.value ?: 0L,
 						name = it.name,
 						sha256Checksum = it.sha256Checksum,
 						size = it.getSize() ?: 0L,
@@ -105,6 +111,7 @@ object DriveManager {
 						fileExtension = it.fileExtension,
 						id = it.id,
 						mimeType = it.mimeType ?: "",
+						modifiedTime = it.modifiedTime?.value ?: 0L,
 						name = it.name,
 						sha256Checksum = it.sha256Checksum,
 						size = it.getSize() ?: 0L,
@@ -140,4 +147,19 @@ object DriveManager {
 				}
 			}
 		}
+
+	suspend fun update(id: String, name: String, createdTime: Long, modifiedTime: Long) =
+		withContext(Dispatchers.IO) {
+			try {
+				val service = DriveService.getService()
+				val file = DriveFile()
+				file.name = name
+				file.createdTime = DateTime(createdTime)
+				file.modifiedTime = DateTime(modifiedTime)
+				service.files().update(id, file).execute()
+			} catch (exception: Exception) {
+				exception.printStackTrace()
+			}
+		}
+
 }

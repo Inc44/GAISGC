@@ -1,25 +1,39 @@
 package im.bpu.gaisgc.ui.component
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
+import im.bpu.gaisgc.manager.DriveManager
 import im.bpu.gaisgc.model.Item
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun ItemRow(
@@ -33,6 +47,7 @@ fun ItemRow(
 	onSubItemClick: ((Item) -> Unit)? = null,
 	previewId: String? = null,
 ) {
+	var showEditDialog by remember { mutableStateOf(false) }
 	val color =
 		when {
 			item.size == 0L -> Color(MaterialTheme.colorScheme.error.toArgb() xor 0x00FFFFFF)
@@ -42,9 +57,13 @@ fun ItemRow(
 	val background =
 		if (isOpened) MaterialTheme.colorScheme.primary.copy(alpha = 0.128f) else Color.Transparent
 	val modifier =
-		Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(background).let {
-			if (onClick != null) it.clickable(onClick = onClick) else it
-		}
+		Modifier.fillMaxWidth()
+			.clip(RoundedCornerShape(8.dp))
+			.background(background)
+			.combinedClickable(
+				onClick = { onClick?.invoke() },
+				onDoubleClick = { showEditDialog = true },
+			)
 	Row(
 		modifier =
 			modifier.padding(start = (depth * 16).dp, top = 4.dp, bottom = 4.dp).fillMaxWidth(),
@@ -68,4 +87,75 @@ fun ItemRow(
 			}
 		}
 	}
+	if (showEditDialog) {
+		EditDialog(item = item, onDismiss = { showEditDialog = false })
+	}
+}
+
+@Composable
+fun EditDialog(item: Item, onDismiss: () -> Unit) {
+	val scope = rememberCoroutineScope()
+	val dateTimeFormatter = remember { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()) }
+	var name by remember { mutableStateOf(item.name) }
+	var createdTimeStr by remember {
+		mutableStateOf(
+			if (item.createdTime > 0) dateTimeFormatter.format(Date(item.createdTime)) else ""
+		)
+	}
+	var modifiedTimeStr by remember {
+		mutableStateOf(
+			if (item.modifiedTime > 0) dateTimeFormatter.format(Date(item.modifiedTime)) else ""
+		)
+	}
+
+	AlertDialog(
+		onDismissRequest = onDismiss,
+		title = { Text("Edit") },
+		text = {
+			Column {
+				OutlinedTextField(
+					value = name,
+					onValueChange = { name = it },
+					label = { Text("Name") },
+					singleLine = true,
+					modifier = Modifier.fillMaxWidth(),
+				)
+				Spacer(Modifier.height(8.dp))
+				OutlinedTextField(
+					value = createdTimeStr,
+					onValueChange = { createdTimeStr = it },
+					label = { Text("Created Time") },
+					singleLine = true,
+					modifier = Modifier.fillMaxWidth(),
+				)
+				Spacer(Modifier.height(8.dp))
+				OutlinedTextField(
+					value = modifiedTimeStr,
+					onValueChange = { modifiedTimeStr = it },
+					label = { Text("Modified Time") },
+					singleLine = true,
+					modifier = Modifier.fillMaxWidth(),
+				)
+			}
+		},
+		confirmButton = {
+			TextButton(
+				onClick = {
+					try {
+						val createdTime = dateTimeFormatter.parse(createdTimeStr).time
+						val modifiedTime = dateTimeFormatter.parse(modifiedTimeStr).time
+						scope.launch {
+							DriveManager.update(item.id, name, createdTime, modifiedTime)
+						}
+						onDismiss()
+					} catch (exception: Exception) {
+						exception.printStackTrace()
+					}
+				}
+			) {
+				Text("Save")
+			}
+		},
+		dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+	)
 }
