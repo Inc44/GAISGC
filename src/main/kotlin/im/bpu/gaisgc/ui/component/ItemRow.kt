@@ -46,6 +46,7 @@ fun ItemRow(
 	isOpened: Boolean = false,
 	onSubItemClick: ((Item) -> Unit)? = null,
 	previewId: String? = null,
+	canEdit: Boolean = true,
 ) {
 	var showEditDialog by remember { mutableStateOf(false) }
 	val color =
@@ -62,7 +63,7 @@ fun ItemRow(
 			.background(background)
 			.combinedClickable(
 				onClick = { onClick?.invoke() },
-				onDoubleClick = { showEditDialog = true },
+				onDoubleClick = if (canEdit) { { showEditDialog = true } } else null,
 			)
 	Row(
 		modifier =
@@ -83,6 +84,7 @@ fun ItemRow(
 					isOpened = subItem.id == previewId,
 					onSubItemClick = onSubItemClick,
 					previewId = previewId,
+					canEdit = canEdit,
 				)
 			}
 		}

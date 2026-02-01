@@ -89,6 +89,14 @@ ffmpeg -version
 - Download `credentials.json` to `path/to/GAISGC`
 - Add [Test user](https://console.cloud.google.com/auth/audience)
 
+## 🐛 Bugs
+
+- Requires clicking the refresh button to update the UI after saving in the Edit dialog box.
+
+## ⛔ Known Limitations
+
+Not yet known.
+
 ## 🙏 Thanks
 
 Creators of:

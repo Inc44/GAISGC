@@ -79,6 +79,7 @@ fun RelinkerList(previewPaneWidthPx: Float) {
 					State.toggleSelection(id, matches.map { "${it.chat.id}|${it.original.id}" })
 				},
 				isOpened = match.duplicate.id == State.previewId,
+				canEdit = false,
 			)
 		}
 	}
