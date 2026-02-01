@@ -59,17 +59,18 @@ fun ItemRow(
 		if (isOpened) MaterialTheme.colorScheme.primary.copy(alpha = 0.128f) else Color.Transparent
 	val modifier =
 		Modifier.fillMaxWidth()
+			.padding(start = (depth * 16).dp)
 			.clip(RoundedCornerShape(8.dp))
 			.background(background)
 			.combinedClickable(
 				onClick = { onClick?.invoke() },
-				onDoubleClick = if (canEdit) { { showEditDialog = true } } else null,
+				onDoubleClick =
+					if (canEdit) {
+						{ showEditDialog = true }
+					} else null,
 			)
-	Row(
-		modifier =
-			modifier.padding(start = (depth * 16).dp, top = 4.dp, bottom = 4.dp).fillMaxWidth(),
-		verticalAlignment = Alignment.CenterVertically,
-	) {
+			.padding(horizontal = 8.dp, vertical = 8.dp)
+	Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
 		if (hasCheckbox && onCheckedChange != null) {
 			Checkbox(checked = isChecked, onCheckedChange = onCheckedChange)
 			Spacer(Modifier.width(8.dp))
@@ -99,10 +100,9 @@ fun EditDialog(item: Item, onDismiss: () -> Unit) {
 	val scope = rememberCoroutineScope()
 	val dateTimeFormatter = remember { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()) }
 	var name by remember { mutableStateOf(item.name) }
-	val createdTimeStr =
-		remember {
-			if (item.createdTime > 0) dateTimeFormatter.format(Date(item.createdTime)) else ""
-		}
+	val createdTimeStr = remember {
+		if (item.createdTime > 0) dateTimeFormatter.format(Date(item.createdTime)) else ""
+	}
 	var modifiedTimeStr by remember {
 		mutableStateOf(
 			if (item.modifiedTime > 0) dateTimeFormatter.format(Date(item.modifiedTime)) else ""
