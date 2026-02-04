@@ -42,6 +42,13 @@ object QueryManager {
 						"createdTime, fileExtension, id, mimeType, modifiedTime, name, sha256Checksum, size"
 					)
 					.execute()
+			/*
+			val metadata = service.files().get(fileId).setFields("*").execute()
+			for (field in metadata.keys) {
+				println("$field")
+			}
+			println("\n\n")
+			*/
 			Item(
 				createdTime = file.createdTime?.value ?: 0L,
 				fileExtension = file.fileExtension,
