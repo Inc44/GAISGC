@@ -149,21 +149,46 @@ object DriveManager {
 			}
 		}
 
-	suspend fun update(id: String, name: String, modifiedTime: Long) =
+	suspend fun update(id: String, name: String, createdTime: Long, modifiedTime: Long) =
 		withContext(Dispatchers.IO) {
 			try {
 				val service = DriveService.getService()
-				val file = DriveFile()
-				file.name = name
-				file.modifiedTime = DateTime(modifiedTime)
-				service.files().update(id, file).execute()
+				val currentFile =
+					service.files().get(id).setFields("createdTime, modifiedTime").execute()
+				val currentCreatedTime = currentFile.createdTime?.value ?: 0L
+				val currentModifiedTime = currentFile.modifiedTime?.value ?: 0L
+				if (
+					State.devMode &&
+						State.createdTimeModification &&
+						createdTime != currentCreatedTime
+				) {
+					val metadataContentCopy =
+						DriveFile().apply {
+							this.name = name
+							this.createdTime = DateTime(createdTime)
+							this.modifiedTime = DateTime(modifiedTime)
+						}
+					service.files().copy(id, metadataContentCopy).execute()
+					val metadataContentTrash = DriveFile().apply { trashed = true }
+					service.files().update(id, metadataContentTrash).execute()
+				} else if (modifiedTime != currentModifiedTime) {
+					val file = DriveFile()
+					file.name = name
+					file.modifiedTime = DateTime(modifiedTime)
+					service.files().update(id, file).execute()
+				}
 				withContext(Dispatchers.Main) {
 					val iter = State.items.listIterator()
 					while (iter.hasNext()) {
 						val index = iter.nextIndex()
 						val item = iter.next()
 						if (item.id == id) {
-							val updatedItem = item.copy(name = name, modifiedTime = modifiedTime)
+							val updatedItem =
+								item.copy(
+									name = name,
+									createdTime = createdTime,
+									modifiedTime = modifiedTime,
+								)
 							State.items[index] = updatedItem
 							File(State.cacheDirectoryPath, id).delete()
 							return@withContext
@@ -172,7 +197,11 @@ object DriveManager {
 						if (subIndex != -1) {
 							val subItem = item.subItems[subIndex]
 							val updatedSubItem =
-								subItem.copy(name = name, modifiedTime = modifiedTime)
+								subItem.copy(
+									name = name,
+									createdTime = createdTime,
+									modifiedTime = modifiedTime,
+								)
 							val updatedSubItems = item.subItems.toMutableList()
 							updatedSubItems[subIndex] = updatedSubItem
 							val updatedItem = item.copy(subItems = updatedSubItems)

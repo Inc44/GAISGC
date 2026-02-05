@@ -13,6 +13,7 @@ object Constants {
 	const val DUPLICATES_PATH_PROPERTY = "duplicatesPath"
 	const val GAIS_PATH_PROPERTY = "gaisPath"
 	const val MIDDLE_FRAME_PROPERTY = "middleFrame"
+	const val CREATED_TIME_MODIFICATION_PROPERTY = "createdTimeModification"
 	const val RELINK_METHOD_PROPERTY = "relinkMethod"
 
 	const val CONFIG_FILE_PATH = "config.properties"

@@ -57,7 +57,14 @@ fun SettingsPanel() {
 		Row(verticalAlignment = Alignment.CenterVertically) {
 			Checkbox(
 				checked = State.middleFrame,
-				onCheckedChange = { State.saveSettings(it, State.cache, State.relinkMethod) },
+				onCheckedChange = {
+					State.saveSettings(
+						it,
+						State.cache,
+						State.createdTimeModification,
+						State.relinkMethod,
+					)
+				},
 			)
 			Spacer(Modifier.width(8.dp))
 			Text("Use the middle frame of the video if a black thumbnail is detected")
@@ -65,12 +72,29 @@ fun SettingsPanel() {
 		Row(verticalAlignment = Alignment.CenterVertically) {
 			Checkbox(
 				checked = State.cache,
-				onCheckedChange = { State.saveSettings(State.middleFrame, it, State.relinkMethod) },
+				onCheckedChange = {
+					State.saveSettings(
+						State.middleFrame,
+						it,
+						State.createdTimeModification,
+						State.relinkMethod,
+					)
+				},
 			)
 			Spacer(Modifier.width(8.dp))
 			Text("Use cached chats if the SHA256 checksum has not changed.")
 		}
 		if (State.devMode) {
+			Row(verticalAlignment = Alignment.CenterVertically) {
+				Checkbox(
+					checked = State.createdTimeModification,
+					onCheckedChange = {
+						State.saveSettings(State.middleFrame, State.cache, it, State.relinkMethod)
+					},
+				)
+				Spacer(Modifier.width(8.dp))
+				Text("Allow created time modification (creates duplicate, trashes original).")
+			}
 			Column {
 				Text(text = "Relink method", style = MaterialTheme.typography.bodyMedium)
 				Spacer(Modifier.height(4.dp))
@@ -97,7 +121,12 @@ fun SettingsPanel() {
 							DropdownMenuItem(
 								text = { Text(method.displayName) },
 								onClick = {
-									State.saveSettings(State.middleFrame, State.cache, method)
+									State.saveSettings(
+										State.middleFrame,
+										State.cache,
+										State.createdTimeModification,
+										method,
+									)
 									relinkMenuExpanded = false
 								},
 								contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,

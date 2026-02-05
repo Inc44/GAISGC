@@ -29,6 +29,7 @@ object State {
 	var duplicatesPath by mutableStateOf(Constants.DEFAULT_DUPLICATES_PATH)
 	var middleFrame by mutableStateOf(false)
 	var cache by mutableStateOf(false)
+	var createdTimeModification by mutableStateOf(false)
 	var devMode by mutableStateOf(false)
 	var relinkMethod by mutableStateOf(RelinkMethod.DIRECT)
 	val items = mutableStateListOf<Item>()
@@ -59,6 +60,10 @@ object State {
 			middleFrame =
 				properties.getProperty(Constants.MIDDLE_FRAME_PROPERTY, "false").toBoolean()
 			cache = properties.getProperty(Constants.CACHE_PROPERTY, "false").toBoolean()
+			createdTimeModification =
+				properties
+					.getProperty(Constants.CREATED_TIME_MODIFICATION_PROPERTY, "false")
+					.toBoolean()
 			devMode = properties.getProperty(Constants.DEV_MODE_PROPERTY, "false").toBoolean()
 			relinkMethod =
 				try {
@@ -87,12 +92,22 @@ object State {
 		saveProperties()
 	}
 
-	fun saveSettings(newMiddleFrame: Boolean, newCache: Boolean, newRelinkMethod: RelinkMethod) {
+	fun saveSettings(
+		newMiddleFrame: Boolean,
+		newCache: Boolean,
+		newCreatedTimeModification: Boolean,
+		newRelinkMethod: RelinkMethod,
+	) {
 		middleFrame = newMiddleFrame
 		cache = newCache
+		createdTimeModification = newCreatedTimeModification
 		relinkMethod = newRelinkMethod
 		properties.setProperty(Constants.MIDDLE_FRAME_PROPERTY, middleFrame.toString())
 		properties.setProperty(Constants.CACHE_PROPERTY, cache.toString())
+		properties.setProperty(
+			Constants.CREATED_TIME_MODIFICATION_PROPERTY,
+			createdTimeModification.toString(),
+		)
 		properties.setProperty(Constants.RELINK_METHOD_PROPERTY, relinkMethod.name)
 		saveProperties()
 	}

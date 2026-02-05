@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
+import im.bpu.gaisgc.State
 import im.bpu.gaisgc.manager.DriveManager
 import im.bpu.gaisgc.model.Item
 import java.text.SimpleDateFormat
@@ -95,8 +96,8 @@ fun ItemRow(
 		EditDialog(
 			item = item,
 			onDismiss = { showEditDialog = false },
-			onConfirm = { name, modifiedTime ->
-				scope.launch { DriveManager.update(item.id, name, modifiedTime) }
+			onConfirm = { name, createdTime, modifiedTime ->
+				scope.launch { DriveManager.update(item.id, name, createdTime, modifiedTime) }
 				showEditDialog = false
 			},
 		)
@@ -104,18 +105,19 @@ fun ItemRow(
 }
 
 @Composable
-fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, Long) -> Unit) {
+fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, Long, Long) -> Unit) {
 	val dateTimeFormatter = remember { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()) }
 	var name by remember { mutableStateOf(item.name) }
-	val createdTimeStr = remember {
-		if (item.createdTime > 0) dateTimeFormatter.format(Date(item.createdTime)) else ""
+	var createdTimeStr by remember {
+		mutableStateOf(
+			if (item.createdTime > 0) dateTimeFormatter.format(Date(item.createdTime)) else ""
+		)
 	}
 	var modifiedTimeStr by remember {
 		mutableStateOf(
 			if (item.modifiedTime > 0) dateTimeFormatter.format(Date(item.modifiedTime)) else ""
 		)
 	}
-
 	AlertDialog(
 		onDismissRequest = onDismiss,
 		title = { Text("Edit") },
@@ -131,8 +133,8 @@ fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, Long) -> U
 				Spacer(Modifier.height(8.dp))
 				OutlinedTextField(
 					value = createdTimeStr,
-					onValueChange = {},
-					readOnly = true,
+					onValueChange = { createdTimeStr = it },
+					readOnly = !(State.devMode && State.createdTimeModification),
 					label = { Text("Created Time") },
 					singleLine = true,
 					modifier = Modifier.fillMaxWidth(),
@@ -151,8 +153,9 @@ fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, Long) -> U
 			TextButton(
 				onClick = {
 					try {
+						val createdTime = dateTimeFormatter.parse(createdTimeStr).time
 						val modifiedTime = dateTimeFormatter.parse(modifiedTimeStr).time
-						onConfirm(name, modifiedTime)
+						onConfirm(name, createdTime, modifiedTime)
 					} catch (exception: Exception) {
 						exception.printStackTrace()
 					}
