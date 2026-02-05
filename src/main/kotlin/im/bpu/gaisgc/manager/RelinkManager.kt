@@ -20,13 +20,14 @@ object RelinkManager {
 		withContext(Dispatchers.IO) {
 			val service = DriveService.getService()
 			val matchesByChat = matches.groupBy { it.chat.id }
+			val relinkMethod = if (State.devMode) State.relinkMethod else RelinkMethod.DIRECT
 			matchesByChat.forEach { (chatId, chatMatches) ->
 				try {
 					val baos = ByteArrayOutputStream()
 					service.files().get(chatId).executeMediaAndDownloadTo(baos)
 					var content = baos.toString("UTF-8")
 					var modified = false
-					when (State.relinkMethod) {
+					when (relinkMethod) {
 						RelinkMethod.DIRECT -> {
 							chatMatches.forEach { match ->
 								val pattern = "\"id\": \"${match.original.id}\""
@@ -78,7 +79,7 @@ object RelinkManager {
 							if (modified) {
 								val contentString = DriveService.getJSONFactory().toString(chat)
 								content =
-									if (State.relinkMethod == RelinkMethod.PRETTY) {
+									if (relinkMethod == RelinkMethod.PRETTY) {
 										val json = JsonParser.parseString(contentString)
 										CacheManager.gson.toJson(json)
 									} else {

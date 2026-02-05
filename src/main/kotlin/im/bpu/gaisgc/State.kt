@@ -29,6 +29,7 @@ object State {
 	var duplicatesPath by mutableStateOf(Constants.DEFAULT_DUPLICATES_PATH)
 	var middleFrame by mutableStateOf(false)
 	var cache by mutableStateOf(false)
+	var devMode by mutableStateOf(false)
 	var relinkMethod by mutableStateOf(RelinkMethod.DIRECT)
 	val items = mutableStateListOf<Item>()
 	val unlinkedItems = mutableStateListOf<Item>()
@@ -58,6 +59,7 @@ object State {
 			middleFrame =
 				properties.getProperty(Constants.MIDDLE_FRAME_PROPERTY, "false").toBoolean()
 			cache = properties.getProperty(Constants.CACHE_PROPERTY, "false").toBoolean()
+			devMode = properties.getProperty(Constants.DEV_MODE_PROPERTY, "false").toBoolean()
 			relinkMethod =
 				try {
 					RelinkMethod.valueOf(
@@ -74,14 +76,14 @@ object State {
 	}
 
 	fun saveGaisPath(path: String) {
-		gaisPath = path
-		properties.setProperty(Constants.GAIS_PATH_PROPERTY, path)
+		gaisPath = path.replace("\\", "/")
+		properties.setProperty(Constants.GAIS_PATH_PROPERTY, path.replace("\\", "/"))
 		saveProperties()
 	}
 
 	fun saveDuplicatesPath(path: String) {
-		duplicatesPath = path
-		properties.setProperty(Constants.DUPLICATES_PATH_PROPERTY, path)
+		duplicatesPath = path.replace("\\", "/")
+		properties.setProperty(Constants.DUPLICATES_PATH_PROPERTY, path.replace("\\", "/"))
 		saveProperties()
 	}
 
@@ -92,6 +94,12 @@ object State {
 		properties.setProperty(Constants.MIDDLE_FRAME_PROPERTY, middleFrame.toString())
 		properties.setProperty(Constants.CACHE_PROPERTY, cache.toString())
 		properties.setProperty(Constants.RELINK_METHOD_PROPERTY, relinkMethod.name)
+		saveProperties()
+	}
+
+	fun saveDevMode(enabled: Boolean) {
+		devMode = enabled
+		properties.setProperty(Constants.DEV_MODE_PROPERTY, devMode.toString())
 		saveProperties()
 	}
 

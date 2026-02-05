@@ -9,6 +9,7 @@ object Constants {
 	const val USER_ID = "user"
 
 	const val CACHE_PROPERTY = "cache"
+	const val DEV_MODE_PROPERTY = "devMode"
 	const val DUPLICATES_PATH_PROPERTY = "duplicatesPath"
 	const val GAIS_PATH_PROPERTY = "gaisPath"
 	const val MIDDLE_FRAME_PROPERTY = "middleFrame"
@@ -25,6 +26,7 @@ object Constants {
 	const val MIN_HEIGHT = 600
 	const val MIN_WIDTH = 1000
 	const val PREVIEW_PANE_WIDTH_DP = 560f
+	const val DEV_MODE_CLICKS = 7
 
 	const val MIME_FOLDER = "application/vnd.google-apps.folder"
 	const val MIME_PROMPT = "application/vnd.google-makersuite.prompt"

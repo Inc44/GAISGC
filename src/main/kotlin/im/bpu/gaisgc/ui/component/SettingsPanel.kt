@@ -70,40 +70,43 @@ fun SettingsPanel() {
 			Spacer(Modifier.width(8.dp))
 			Text("Use cached chats if the SHA256 checksum has not changed.")
 		}
-		Column {
-			Text(text = "Relink method", style = MaterialTheme.typography.bodyMedium)
-			Spacer(Modifier.height(4.dp))
-			ExposedDropdownMenuBox(
-				expanded = relinkMenuExpanded,
-				onExpandedChange = { relinkMenuExpanded = it },
-			) {
-				OutlinedTextField(
-					value = State.relinkMethod.displayName,
-					onValueChange = {},
-					readOnly = true,
-					trailingIcon = {
-						ExposedDropdownMenuDefaults.TrailingIcon(expanded = relinkMenuExpanded)
-					},
-					colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-					modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-				)
-				ExposedDropdownMenu(
+		if (State.devMode) {
+			Column {
+				Text(text = "Relink method", style = MaterialTheme.typography.bodyMedium)
+				Spacer(Modifier.height(4.dp))
+				ExposedDropdownMenuBox(
 					expanded = relinkMenuExpanded,
-					onDismissRequest = { relinkMenuExpanded = false },
+					onExpandedChange = { relinkMenuExpanded = it },
 				) {
-					RelinkMethod.entries.forEach { method ->
-						DropdownMenuItem(
-							text = { Text(method.displayName) },
-							onClick = {
-								State.saveSettings(State.middleFrame, State.cache, method)
-								relinkMenuExpanded = false
-							},
-							contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
-						)
+					OutlinedTextField(
+						value = State.relinkMethod.displayName,
+						onValueChange = {},
+						readOnly = true,
+						trailingIcon = {
+							ExposedDropdownMenuDefaults.TrailingIcon(expanded = relinkMenuExpanded)
+						},
+						colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+						modifier =
+							Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+					)
+					ExposedDropdownMenu(
+						expanded = relinkMenuExpanded,
+						onDismissRequest = { relinkMenuExpanded = false },
+					) {
+						RelinkMethod.entries.forEach { method ->
+							DropdownMenuItem(
+								text = { Text(method.displayName) },
+								onClick = {
+									State.saveSettings(State.middleFrame, State.cache, method)
+									relinkMenuExpanded = false
+								},
+								contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+							)
+						}
 					}
 				}
+				Spacer(Modifier.height(4.dp))
 			}
-			Spacer(Modifier.height(4.dp))
 		}
 		Button(
 			onClick = { CacheManager.clearCache() },
