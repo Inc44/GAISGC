@@ -110,18 +110,24 @@ object RelinkManager {
 		}
 
 	private fun setJsBeautifyPrinting(json: String): String {
+		val chatFile = File.createTempFile("gaisgc", ".json")
 		return try {
-			val jsBeautifyProcess = ProcessBuilder("js-beautify", "-s", "2").start()
-			val jsBeautifyOS = jsBeautifyProcess.outputStream
-			val bytes = json.toByteArray()
-			jsBeautifyOS.use { it.write(bytes) }
-			val jsBeautifyIS = jsBeautifyProcess.inputStream
-			val bytesFormatted = jsBeautifyIS.use { it.readBytes() }
-			val jsonFormatted = bytesFormatted.toString(Charsets.UTF_8)
-			jsBeautifyProcess.waitFor()
+			chatFile.writeText(json)
+			val osName = System.getProperty("os.name").lowercase()
+			val isWindows = osName.contains("win")
+			val cmd =
+				if (isWindows) {
+					listOf("cmd.exe", "/c", "js-beautify", "-s", "2", "-r", chatFile.absolutePath)
+				} else {
+					listOf("js-beautify", "-s", "2", "-r", chatFile.absolutePath)
+				}
+			ProcessBuilder(cmd).start().waitFor()
+			val jsonFormatted = chatFile.readText()
 			jsonFormatted.ifEmpty { json }
 		} catch (exception: Exception) {
 			json
+		} finally {
+			if (chatFile.exists()) chatFile.delete()
 		}
 	}
 }
