@@ -4,6 +4,7 @@ import com.google.api.client.util.DateTime
 import com.google.api.services.drive.model.File as DriveFile
 import im.bpu.gaisgc.State
 import im.bpu.gaisgc.model.Constants
+import im.bpu.gaisgc.model.DuplicateMatch
 import im.bpu.gaisgc.model.Item
 import im.bpu.gaisgc.parser.ChatParser
 import im.bpu.gaisgc.service.DriveService
@@ -157,6 +158,7 @@ object DriveManager {
 					service.files().get(id).setFields("createdTime, modifiedTime").execute()
 				val currentCreatedTime = currentFile.createdTime?.value ?: 0L
 				val currentModifiedTime = currentFile.modifiedTime?.value ?: 0L
+				var newId = id
 				if (
 					State.devMode &&
 						State.createdTimeModification &&
@@ -168,9 +170,18 @@ object DriveManager {
 							this.createdTime = DateTime(createdTime)
 							this.modifiedTime = DateTime(modifiedTime)
 						}
-					service.files().copy(id, metadataContentCopy).execute()
+					val newFile =
+						service.files().copy(id, metadataContentCopy).setFields("id").execute()
+					val chatItem =
+						State.items.find { it.subItems.any { subItem -> subItem.id == id } }
+					if (chatItem != null) {
+						val subItem = chatItem.subItems.first { it.id == id }
+						val newSubItem = subItem.copy(id = newFile.id)
+						RelinkManager.relink(listOf(DuplicateMatch(chatItem, subItem, newSubItem)))
+					}
 					val metadataContentTrash = DriveFile().apply { trashed = true }
 					service.files().update(id, metadataContentTrash).execute()
+					newId = newFile.id
 				} else if (modifiedTime != currentModifiedTime) {
 					val file = DriveFile()
 					file.name = name
@@ -185,6 +196,7 @@ object DriveManager {
 						if (item.id == id) {
 							val updatedItem =
 								item.copy(
+									id = newId,
 									name = name,
 									createdTime = createdTime,
 									modifiedTime = modifiedTime,
@@ -198,6 +210,7 @@ object DriveManager {
 							val subItem = item.subItems[subIndex]
 							val updatedSubItem =
 								subItem.copy(
+									id = newId,
 									name = name,
 									createdTime = createdTime,
 									modifiedTime = modifiedTime,
