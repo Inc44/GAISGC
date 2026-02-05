@@ -49,6 +49,7 @@ fun ItemRow(
 	canEdit: Boolean = true,
 ) {
 	var showEditDialog by remember { mutableStateOf(false) }
+	val scope = rememberCoroutineScope()
 	val color =
 		when {
 			item.size == 0L -> Color(MaterialTheme.colorScheme.error.toArgb() xor 0x00FFFFFF)
@@ -91,13 +92,19 @@ fun ItemRow(
 		}
 	}
 	if (showEditDialog) {
-		EditDialog(item = item, onDismiss = { showEditDialog = false })
+		EditDialog(
+			item = item,
+			onDismiss = { showEditDialog = false },
+			onConfirm = { name, modifiedTime ->
+				scope.launch { DriveManager.update(item.id, name, modifiedTime) }
+				showEditDialog = false
+			},
+		)
 	}
 }
 
 @Composable
-fun EditDialog(item: Item, onDismiss: () -> Unit) {
-	val scope = rememberCoroutineScope()
+fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, Long) -> Unit) {
 	val dateTimeFormatter = remember { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()) }
 	var name by remember { mutableStateOf(item.name) }
 	val createdTimeStr = remember {
@@ -145,8 +152,7 @@ fun EditDialog(item: Item, onDismiss: () -> Unit) {
 				onClick = {
 					try {
 						val modifiedTime = dateTimeFormatter.parse(modifiedTimeStr).time
-						scope.launch { DriveManager.update(item.id, name, modifiedTime) }
-						onDismiss()
+						onConfirm(name, modifiedTime)
 					} catch (exception: Exception) {
 						exception.printStackTrace()
 					}

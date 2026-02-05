@@ -7,6 +7,7 @@ import im.bpu.gaisgc.model.Constants
 import im.bpu.gaisgc.model.Item
 import im.bpu.gaisgc.parser.ChatParser
 import im.bpu.gaisgc.service.DriveService
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -156,6 +157,31 @@ object DriveManager {
 				file.name = name
 				file.modifiedTime = DateTime(modifiedTime)
 				service.files().update(id, file).execute()
+				withContext(Dispatchers.Main) {
+					val iter = State.items.listIterator()
+					while (iter.hasNext()) {
+						val index = iter.nextIndex()
+						val item = iter.next()
+						if (item.id == id) {
+							val updatedItem = item.copy(name = name, modifiedTime = modifiedTime)
+							State.items[index] = updatedItem
+							File(State.cacheDirectoryPath, id).delete()
+							return@withContext
+						}
+						val subIndex = item.subItems.indexOfFirst { it.id == id }
+						if (subIndex != -1) {
+							val subItem = item.subItems[subIndex]
+							val updatedSubItem =
+								subItem.copy(name = name, modifiedTime = modifiedTime)
+							val updatedSubItems = item.subItems.toMutableList()
+							updatedSubItems[subIndex] = updatedSubItem
+							val updatedItem = item.copy(subItems = updatedSubItems)
+							State.items[index] = updatedItem
+							File(State.cacheDirectoryPath, item.id).delete()
+							return@withContext
+						}
+					}
+				}
 			} catch (exception: Exception) {
 				exception.printStackTrace()
 			}
