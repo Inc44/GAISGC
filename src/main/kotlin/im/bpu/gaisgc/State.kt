@@ -66,7 +66,7 @@ object State {
 						properties.getProperty(Constants.RELINK_METHOD_PROPERTY, "DIRECT")
 					)
 				} catch (exception: Exception) {
-					RelinkMethod.PRETTY
+					RelinkMethod.DIRECT
 				}
 		}
 		isConnected =
@@ -97,8 +97,8 @@ object State {
 		saveProperties()
 	}
 
-	fun saveDevMode(enabled: Boolean) {
-		devMode = enabled
+	fun toggleDevMode() {
+		devMode = !devMode
 		properties.setProperty(Constants.DEV_MODE_PROPERTY, devMode.toString())
 		saveProperties()
 	}

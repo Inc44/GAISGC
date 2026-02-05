@@ -27,6 +27,7 @@ object Constants {
 	const val MIN_WIDTH = 1000
 	const val PREVIEW_PANE_WIDTH_DP = 560f
 	const val DEV_MODE_CLICKS = 7
+	const val DEV_MODE_MS = 2000
 
 	const val MIME_FOLDER = "application/vnd.google-apps.folder"
 	const val MIME_PROMPT = "application/vnd.google-makersuite.prompt"

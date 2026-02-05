@@ -14,10 +14,8 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import im.bpu.gaisgc.State
@@ -27,7 +25,8 @@ import im.bpu.gaisgc.model.Screen
 @Composable
 fun NavigationSideBar() {
 	val interactionSource = remember { MutableInteractionSource() }
-	var devModeClickCount by remember { mutableStateOf(0) }
+	var devModeClickCount = remember { mutableStateOf(0) }
+	val devModeClickTime = remember { mutableStateOf(0L) }
 	NavigationRail(
 		modifier =
 			Modifier.width(80.dp).fillMaxHeight().clickable(
@@ -67,10 +66,17 @@ fun NavigationSideBar() {
 		NavigationRailItem(
 			selected = State.screen == Screen.SETTINGS,
 			onClick = {
-				devModeClickCount++
-				if (devModeClickCount >= Constants.DEV_MODE_CLICKS) {
-					State.saveDevMode(true)
-					devModeClickCount = 0
+				val startTime = System.currentTimeMillis()
+				if (devModeClickCount.value == 0 || startTime - devModeClickTime.value > Constants.DEV_MODE_MS) {
+					devModeClickCount.value = 1
+					devModeClickTime.value = startTime
+				} else {
+					devModeClickCount.value++
+				}
+				if (devModeClickCount.value >= Constants.DEV_MODE_CLICKS) {
+					State.toggleDevMode()
+					devModeClickCount.value = 0
+					devModeClickTime.value = 0L
 				}
 				State.screen = Screen.SETTINGS
 				State.clearSelection()
