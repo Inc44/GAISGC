@@ -128,7 +128,14 @@ Not yet found.
 
 ## ⛔ Known Limitations
 
-Not yet known.
+- May be slow for duplicate files due to quadratic time complexity.
+- May consume too much memory due to not using streaming.
+- May exceed Google Drive API quotas.
+- May be insecure due to lack of encryption for credentials, cache, and temp files.
+- "Direct" and "Regex" relink methods are destructive.
+- "Pretty" relink method doesn't retain original formatting.
+- "js-beautify" relink method is an external dependency.
+- Requires Gradle, whose daemon may take too much time to start.
 
 ## 🚧 TODO
 
