@@ -67,7 +67,7 @@ fun ItemRow(
 			.combinedClickable(
 				onClick = { onClick?.invoke() },
 				onDoubleClick =
-					if (canEdit && !item.isNotFound) {
+					if (canEdit) {
 						{ showEditDialog = true }
 					} else null,
 			)
@@ -96,8 +96,12 @@ fun ItemRow(
 		EditDialog(
 			item = item,
 			onDismiss = { showEditDialog = false },
-			onConfirm = { name, createdTime, modifiedTime ->
-				scope.launch { DriveManager.update(item.id, name, createdTime, modifiedTime) }
+			onConfirm = { id, name, createdTime, modifiedTime ->
+				if (item.isNotFound) {
+					scope.launch { DriveManager.relink(item.id, id) }
+				} else {
+					scope.launch { DriveManager.update(item.id, name, createdTime, modifiedTime) }
+				}
 				showEditDialog = false
 			},
 		)
@@ -105,8 +109,9 @@ fun ItemRow(
 }
 
 @Composable
-fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, Long, Long) -> Unit) {
+fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, String, Long, Long) -> Unit) {
 	val dateTimeFormatter = remember { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()) }
+	var id by remember { mutableStateOf(item.id) }
 	var name by remember { mutableStateOf(item.name) }
 	var createdTimeStr by remember {
 		mutableStateOf(
@@ -120,42 +125,58 @@ fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, Long, Long
 	}
 	AlertDialog(
 		onDismissRequest = onDismiss,
-		title = { Text("Edit") },
+		title = { Text(if (item.isNotFound) "Edit ID" else "Edit Metadata") },
 		text = {
 			Column {
-				OutlinedTextField(
-					value = name,
-					onValueChange = { name = it },
-					label = { Text("Name") },
-					singleLine = true,
-					modifier = Modifier.fillMaxWidth(),
-				)
-				Spacer(Modifier.height(8.dp))
-				OutlinedTextField(
-					value = createdTimeStr,
-					onValueChange = { createdTimeStr = it },
-					readOnly = !(State.devMode && State.createdTimeModification),
-					label = { Text("Created Time") },
-					singleLine = true,
-					modifier = Modifier.fillMaxWidth(),
-				)
-				Spacer(Modifier.height(8.dp))
-				OutlinedTextField(
-					value = modifiedTimeStr,
-					onValueChange = { modifiedTimeStr = it },
-					label = { Text("Modified Time") },
-					singleLine = true,
-					modifier = Modifier.fillMaxWidth(),
-				)
+				if (item.isNotFound) {
+					OutlinedTextField(
+						value = id,
+						onValueChange = { id = it },
+						label = { Text("ID") },
+						singleLine = true,
+						modifier = Modifier.fillMaxWidth(),
+					)
+				} else {
+					OutlinedTextField(
+						value = name,
+						onValueChange = { name = it },
+						label = { Text("Name") },
+						singleLine = true,
+						modifier = Modifier.fillMaxWidth(),
+					)
+					Spacer(Modifier.height(8.dp))
+					OutlinedTextField(
+						value = createdTimeStr,
+						onValueChange = { createdTimeStr = it },
+						readOnly = !(State.devMode && State.createdTimeModification),
+						label = { Text("Created Time") },
+						singleLine = true,
+						modifier = Modifier.fillMaxWidth(),
+					)
+					Spacer(Modifier.height(8.dp))
+					OutlinedTextField(
+						value = modifiedTimeStr,
+						onValueChange = { modifiedTimeStr = it },
+						label = { Text("Modified Time") },
+						singleLine = true,
+						modifier = Modifier.fillMaxWidth(),
+					)
+				}
 			}
 		},
 		confirmButton = {
 			TextButton(
 				onClick = {
 					try {
-						val createdTime = dateTimeFormatter.parse(createdTimeStr).time
-						val modifiedTime = dateTimeFormatter.parse(modifiedTimeStr).time
-						onConfirm(name, createdTime, modifiedTime)
+						val createdTime =
+							if (createdTimeStr.isNotEmpty())
+								dateTimeFormatter.parse(createdTimeStr).time
+							else item.createdTime
+						val modifiedTime =
+							if (modifiedTimeStr.isNotEmpty())
+								dateTimeFormatter.parse(modifiedTimeStr).time
+							else item.modifiedTime
+						onConfirm(id, name, createdTime, modifiedTime)
 					} catch (exception: Exception) {
 						exception.printStackTrace()
 					}

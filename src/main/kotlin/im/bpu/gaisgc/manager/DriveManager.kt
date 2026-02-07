@@ -228,4 +228,26 @@ object DriveManager {
 				exception.printStackTrace()
 			}
 		}
+
+	suspend fun relink(id: String, newId: String) =
+		withContext(Dispatchers.IO) {
+			val chatItem = State.items.find { it.subItems.any { subItem -> subItem.id == id } }
+			if (chatItem != null) {
+				val subItem = chatItem.subItems.first { it.id == id }
+				val newSubItem = subItem.copy(id = newId)
+				RelinkManager.relink(listOf(DuplicateMatch(chatItem, subItem, newSubItem)))
+				withContext(Dispatchers.Main) {
+					val index = State.items.indexOf(chatItem)
+					if (index != -1) {
+						val updatedSubItems =
+							chatItem.subItems.map {
+								if (it.id == id)
+									it.copy(id = newId, isNotFound = false, name = newId)
+								else it
+							}
+						State.items[index] = chatItem.copy(subItems = updatedSubItems)
+					}
+				}
+			}
+		}
 }
