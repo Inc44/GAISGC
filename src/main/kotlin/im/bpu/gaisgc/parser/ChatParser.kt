@@ -15,9 +15,7 @@ object ChatParser {
 		val ids = mutableListOf<String>()
 		val reader = JsonReader(InputStreamReader(ins, "UTF-8"))
 		reader.use {
-			if (it.peek() == JsonToken.BEGIN_OBJECT) {
-				parseObject(it, ids)
-			}
+			if (it.peek() == JsonToken.BEGIN_OBJECT) parseObject(it, ids)
 		}
 		return ids
 	}

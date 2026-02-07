@@ -77,9 +77,7 @@ object DriveService {
 			withContext(Dispatchers.IO) {
 				try {
 					val tokensDirectoryPath = File(Constants.TOKENS_DIRECTORY_PATH)
-					if (tokensDirectoryPath.exists()) {
-						tokensDirectoryPath.deleteRecursively()
-					}
+					if (tokensDirectoryPath.exists()) tokensDirectoryPath.deleteRecursively()
 					driveService = null
 					State.isConnected = false
 					withContext(Dispatchers.Main) {

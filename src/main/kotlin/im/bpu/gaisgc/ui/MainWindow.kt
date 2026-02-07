@@ -142,9 +142,7 @@ private fun ContentArea(
 			onTrash = onTrash,
 			onRelink = onRelink,
 		)
-		if ((State.screen == Screen.UNLINKED || State.screen == Screen.RELINKER) && showFilters) {
-			FilterPanel()
-		}
+		if ((State.screen == Screen.UNLINKED || State.screen == Screen.RELINKER) && showFilters) FilterPanel()
 		Box(
 			modifier =
 				Modifier.weight(1f).clickable(

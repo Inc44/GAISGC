@@ -116,11 +116,8 @@ object QueryManager {
 			val parentId = queue.removeFirst()
 			val children = getChildFilesByParent(service, parentId)
 			children.forEach { child ->
-				if (child.mimeType == Constants.MIME_FOLDER) {
-					queue.add(child.id)
-				} else {
-					files.add(child)
-				}
+				if (child.mimeType == Constants.MIME_FOLDER) queue.add(child.id)
+				else files.add(child)
 			}
 		}
 		return files

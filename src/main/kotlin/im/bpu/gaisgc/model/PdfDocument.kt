@@ -27,9 +27,7 @@ class PdfDocument(private val document: PDDocument, firstPage: ImageBitmap) : Cl
 						val dpi = (previewPaneWidthPx * 72f) / pdfPageWidthPts
 						renderer.renderImageWithDPI(i, dpi).toComposeImageBitmap()
 					}
-				if (bitmap != null) {
-					withContext(Dispatchers.Main) { if (!isClosed) pages.add(bitmap) }
-				}
+				if (bitmap != null) withContext(Dispatchers.Main) { if (!isClosed) pages.add(bitmap) }
 			}
 		}
 	}

@@ -97,11 +97,8 @@ fun ItemRow(
 			item = item,
 			onDismiss = { showEditDialog = false },
 			onConfirm = { id, name, createdTime, modifiedTime ->
-				if (item.isNotFound) {
-					scope.launch { DriveManager.relink(item.id, id) }
-				} else {
-					scope.launch { DriveManager.update(item.id, name, createdTime, modifiedTime) }
-				}
+				if (item.isNotFound) scope.launch { DriveManager.relink(item.id, id) }
+				else scope.launch { DriveManager.update(item.id, name, createdTime, modifiedTime) }
 				showEditDialog = false
 			},
 		)

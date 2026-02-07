@@ -138,9 +138,7 @@ object DriveManager {
 							withContext(Dispatchers.Main) {
 								State.unlinkedItems.removeIf { it.id == id }
 								State.selectedIds.remove(id)
-								if (State.lastSelectedId == id) {
-									State.lastSelectedId = null
-								}
+								if (State.lastSelectedId == id) State.lastSelectedId = null
 							}
 						} catch (exception: Exception) {
 							exception.printStackTrace()
