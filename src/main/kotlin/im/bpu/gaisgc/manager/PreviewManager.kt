@@ -41,6 +41,7 @@ object PreviewManager {
 	private suspend fun getDocumentById(id: String): List<String>? =
 		withContext(Dispatchers.IO) {
 			val documentFile = File.createTempFile("gaisgc", ".txt")
+			documentFile.deleteOnExit()
 			try {
 				val service = DriveService.getService()
 				DriveService.downloadFile(service, id, documentFile)
@@ -70,6 +71,7 @@ object PreviewManager {
 	): PdfDocument? =
 		withContext(Dispatchers.IO) {
 			val pdfFile = File.createTempFile("gaisgc", ".pdf")
+			pdfFile.deleteOnExit()
 			try {
 				val service = DriveService.getService()
 				DriveService.downloadFile(service, id, pdfFile)

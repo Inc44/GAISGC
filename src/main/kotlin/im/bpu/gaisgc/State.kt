@@ -82,13 +82,13 @@ object State {
 
 	fun saveGaisPath(path: String) {
 		gaisPath = path.replace("\\", "/")
-		properties.setProperty(Constants.GAIS_PATH_PROPERTY, path.replace("\\", "/"))
+		properties.setProperty(Constants.GAIS_PATH_PROPERTY, gaisPath)
 		saveProperties()
 	}
 
 	fun saveDuplicatesPath(path: String) {
 		duplicatesPath = path.replace("\\", "/")
-		properties.setProperty(Constants.DUPLICATES_PATH_PROPERTY, path.replace("\\", "/"))
+		properties.setProperty(Constants.DUPLICATES_PATH_PROPERTY, duplicatesPath)
 		saveProperties()
 	}
 

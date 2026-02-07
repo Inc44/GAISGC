@@ -22,12 +22,12 @@ class PdfDocument(
 
 	fun renderRemaining(scope: CoroutineScope, previewPaneWidthPx: Float) {
 		scope.launch(Dispatchers.IO) {
-			val renderer = PDFRenderer(document)
 			for (pageIndex in 1 until document.numberOfPages) {
 				if (isClosed) break
 				val bitmap =
 					synchronized(document) {
 						if (isClosed) return@synchronized null
+						val renderer = PDFRenderer(document)
 						val pdfPageWidthPts = document.getPage(pageIndex).mediaBox.width
 						val dpi = (previewPaneWidthPx * 72f) / pdfPageWidthPts
 						renderer.renderImageWithDPI(pageIndex, dpi).toComposeImageBitmap()

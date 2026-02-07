@@ -75,7 +75,9 @@ object MediaManager {
 
 	suspend fun getVideoMiddleFrame(service: Drive, id: String): ImageBitmap? {
 		val videoFile = File.createTempFile("gaisgc", ".mkv")
+		videoFile.deleteOnExit()
 		val imageFile = File.createTempFile("gaisgc", ".png")
+		imageFile.deleteOnExit()
 		return try {
 			DriveService.downloadFile(service, id, videoFile)
 			val duration = getVideoDuration(videoFile)

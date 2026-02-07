@@ -35,7 +35,7 @@ object RelinkManager {
 		try {
 			val baos = ByteArrayOutputStream()
 			service.files().get(chatId).executeMediaAndDownloadTo(baos)
-			var content = baos.toString("UTF-8")
+			var content = baos.toString(Charsets.UTF_8)
 			val relinkStatus =
 				when (relinkMethod) {
 				RelinkMethod.DIRECT -> relinkDirect(content, chatMatches)
@@ -137,6 +137,7 @@ object RelinkManager {
 
 	private fun setJsBeautifyPrinting(json: String): String {
 		val chatFile = File.createTempFile("gaisgc", ".json")
+		chatFile.deleteOnExit()
 		return try {
 			chatFile.writeText(json)
 			val osName = System.getProperty("os.name").lowercase()
