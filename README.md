@@ -63,12 +63,14 @@ gradle run
 ##### Important Links
 
 - [FFmpeg](https://www.gyan.dev/ffmpeg/builds) - Media
+- [js-beautify](https://beautifier.io) - Formatting
 
 ##### System Requirements
 
-Ensure these binaries are in your system's PATH:
+Ensure these binaries/scripts are in your system's PATH:
 
 - `ffmpeg.exe` - Version 8.0.1 tested
+- `js-beautify` - Version 1.15.4 tested
 
 ##### Adding Binaries to System Path
 
@@ -79,6 +81,7 @@ Check their presence:
 
 ```bash
 ffmpeg -version
+js-beautify -v
 ```
 
 ## 🧾 Configuration
