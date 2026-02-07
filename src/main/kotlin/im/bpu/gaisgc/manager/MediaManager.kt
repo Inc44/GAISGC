@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.google.api.services.drive.Drive
 import im.bpu.gaisgc.model.Constants
 import im.bpu.gaisgc.service.DriveService
-import java.io.ByteArrayInputStream
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.math.pow
@@ -20,7 +19,7 @@ object MediaManager {
 
 	fun isVideoThumbnailBlack(bytes: ByteArray): Boolean {
 		return try {
-			val bais = ByteArrayInputStream(bytes)
+			val bais = bytes.inputStream()
 			val img = ImageIO.read(bais) ?: return false
 			val width = img.width
 			val height = img.height
@@ -72,27 +71,24 @@ object MediaManager {
 	}
 
 	suspend fun getVideoMiddleFrame(service: Drive, id: String): ImageBitmap? {
+		val videoFile = File.createTempFile("gaisgc", ".mkv")
+		val imageFile = File.createTempFile("gaisgc", ".png")
 		return try {
-			val bytes = DriveService.downloadFileBytes(service, id)
-			val videoFile = File.createTempFile("gaisgc", ".mkv")
-			videoFile.writeBytes(bytes)
-			val imageFile = File.createTempFile("gaisgc", ".png")
+			DriveService.downloadFile(service, id, videoFile)
 			val duration = getVideoDuration(videoFile)
 			if (duration != null) {
 				extractVideoFrame(videoFile, duration / 2, imageFile)
 				if (imageFile.exists() && imageFile.length() > 0) {
 					val bytes = imageFile.readBytes()
-					videoFile.delete()
-					imageFile.delete()
 					val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
-					return image
-				}
-			}
-			videoFile.delete()
-			imageFile.delete()
-			null
+					image
+				} else null
+			} else null
 		} catch (exception: Exception) {
 			null
+		} finally {
+			if (videoFile.exists()) videoFile.delete()
+			if (imageFile.exists()) imageFile.delete()
 		}
 	}
 }

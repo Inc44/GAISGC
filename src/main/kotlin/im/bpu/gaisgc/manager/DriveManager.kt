@@ -11,6 +11,7 @@ import im.bpu.gaisgc.parser.ChatParser
 import im.bpu.gaisgc.service.DriveService
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -18,15 +19,22 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object DriveManager {
-	suspend fun fetch() = coroutineScope {
-		resetState()
-		val service = DriveService.getService()
-		val chatFiles = QueryManager.getFilesByMime(service, Constants.MIME_PROMPT)
-		val chatItems = chatFiles.map { fileToItem(it) }
-		withContext(Dispatchers.Main) { State.items.addAll(chatItems) }
-		val deferredSubItems = getDeferredSubItems(service, chatFiles)
-		loadOrphanItems(service, deferredSubItems)
-		loadDuplicateItems(service, deferredSubItems)
+	private var fetchJob: Job? = null
+
+	suspend fun fetch() {
+		fetchJob?.cancel()
+		coroutineScope {
+			fetchJob = launch {
+				resetState()
+				val service = DriveService.getService()
+				val chatFiles = QueryManager.getFilesByMime(service, Constants.MIME_PROMPT)
+				val chatItems = chatFiles.map { fileToItem(it) }
+				withContext(Dispatchers.Main) { State.items.addAll(chatItems) }
+				val deferredSubItems = getDeferredSubItems(service, chatFiles)
+				loadOrphanItems(service, deferredSubItems)
+				loadDuplicateItems(service, deferredSubItems)
+			}
+		}
 	}
 
 	private suspend fun resetState() =
@@ -42,11 +50,14 @@ object DriveManager {
 		chatFiles: List<DriveFile>,
 	): List<Item> = coroutineScope {
 		chatFiles
-			.mapIndexed { i, file ->
+			.map { file ->
 				async(Dispatchers.IO) {
 					val subItems = getSubItems(service, file)
 					val item = fileToItem(file).copy(subItems = subItems)
-					withContext(Dispatchers.Main) { State.items[i] = item }
+					withContext(Dispatchers.Main) {
+						val index = State.items.indexOfFirst { it.id == item.id }
+						if (index != -1) State.items[index] = item
+					}
 					item
 				}
 			}

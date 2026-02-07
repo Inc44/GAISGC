@@ -17,6 +17,7 @@ import im.bpu.gaisgc.model.Constants
 import im.bpu.gaisgc.model.Screen
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStreamReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -33,10 +34,11 @@ object DriveService {
 
 	private fun getCredentials(httpTransport: HttpTransport): Credential {
 		val environmentCredentialsJsonPath = System.getenv(Constants.CREDENTIALS_JSON_PATH)
-		val path = if (!environmentCredentialsJsonPath.isNullOrEmpty()) environmentCredentialsJsonPath else Constants.CREDENTIALS_FILE_PATH
+		val path =
+			if (!environmentCredentialsJsonPath.isNullOrEmpty()) environmentCredentialsJsonPath
+			else Constants.CREDENTIALS_FILE_PATH
 		val file = File(path)
-		if (!file.exists())
-			throw Exception("Resource not found: $path")
+		if (!file.exists()) throw Exception("Resource not found: $path")
 		val clientSecrets =
 			GoogleClientSecrets.load(JSON_FACTORY, InputStreamReader(file.inputStream()))
 		val flow =
@@ -91,6 +93,12 @@ object DriveService {
 				}
 			}
 		}
+
+	suspend fun downloadFile(service: Drive, id: String, file: File): FileOutputStream {
+		val fos = FileOutputStream(file)
+		withContext(Dispatchers.IO) { service.files().get(id).executeMediaAndDownloadTo(fos) }
+		return fos
+	}
 
 	suspend fun downloadFileBytes(service: Drive, id: String): ByteArray {
 		val baos = ByteArrayOutputStream()

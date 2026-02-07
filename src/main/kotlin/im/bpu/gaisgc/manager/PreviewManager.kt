@@ -9,7 +9,7 @@ import im.bpu.gaisgc.model.Constants
 import im.bpu.gaisgc.model.Item
 import im.bpu.gaisgc.model.PdfDocument
 import im.bpu.gaisgc.service.DriveService
-import java.io.ByteArrayOutputStream
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -40,17 +40,16 @@ object PreviewManager {
 
 	private suspend fun getDocumentById(id: String): List<String>? =
 		withContext(Dispatchers.IO) {
+			val documentFile = File.createTempFile("gaisgc", ".txt")
 			try {
 				val service = DriveService.getService()
-				val baos = ByteArrayOutputStream()
-				service.files().get(id).executeMediaAndDownloadTo(baos)
-				val bytes = baos.toByteArray()
-				val document = String(bytes, Charsets.UTF_8)
-				val reader = document.reader()
-				val lines = reader.readLines()
+				DriveService.downloadFile(service, id, documentFile)
+				val lines = documentFile.readLines()
 				lines
 			} catch (exception: Exception) {
 				null
+			} finally {
+				if (documentFile.exists()) documentFile.delete()
 			}
 		}
 
@@ -72,10 +71,11 @@ object PreviewManager {
 		previewPaneWidthPx: Float,
 	): PdfDocument? =
 		withContext(Dispatchers.IO) {
+			val pdfFile = File.createTempFile("gaisgc", ".pdf")
 			try {
 				val service = DriveService.getService()
-				val bytes = DriveService.downloadFileBytes(service, id)
-				val document = Loader.loadPDF(bytes)
+				DriveService.downloadFile(service, id, pdfFile)
+				val document = Loader.loadPDF(pdfFile)
 				val renderer = PDFRenderer(document)
 				val firstPdfPageWidthPts = document.getPage(0).mediaBox.width
 				val dpi = (previewPaneWidthPx * 72f) / firstPdfPageWidthPts
@@ -84,6 +84,7 @@ object PreviewManager {
 				pdfDocument.renderRemaining(scope, previewPaneWidthPx)
 				pdfDocument
 			} catch (exception: Exception) {
+				if (pdfFile.exists()) pdfFile.delete()
 				null
 			}
 		}

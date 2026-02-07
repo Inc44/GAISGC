@@ -18,16 +18,17 @@ class PdfDocument(private val document: PDDocument, firstPage: ImageBitmap) : Cl
 	fun renderRemaining(scope: CoroutineScope, previewPaneWidthPx: Float) {
 		scope.launch(Dispatchers.IO) {
 			val renderer = PDFRenderer(document)
-			for (i in 1 until document.numberOfPages) {
+			for (pageIndex in 1 until document.numberOfPages) {
 				if (isClosed) break
 				val bitmap =
 					synchronized(document) {
 						if (isClosed) return@synchronized null
-						val pdfPageWidthPts = document.getPage(i).mediaBox.width
+						val pdfPageWidthPts = document.getPage(pageIndex).mediaBox.width
 						val dpi = (previewPaneWidthPx * 72f) / pdfPageWidthPts
-						renderer.renderImageWithDPI(i, dpi).toComposeImageBitmap()
+						renderer.renderImageWithDPI(pageIndex, dpi).toComposeImageBitmap()
 					}
-				if (bitmap != null) withContext(Dispatchers.Main) { if (!isClosed) pages.add(bitmap) }
+				if (bitmap != null)
+					withContext(Dispatchers.Main) { if (!isClosed) pages.add(bitmap) }
 			}
 		}
 	}
