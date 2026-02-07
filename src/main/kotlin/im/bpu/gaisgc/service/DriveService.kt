@@ -19,12 +19,15 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStreamReader
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 object DriveService {
 	private val JSON_FACTORY = GsonFactory.getDefaultInstance()
 	private val SCOPES = listOf(DriveScopes.DRIVE)
 	private var driveService: Drive? = null
+	private val mutex = Mutex()
 
 	fun getJSONFactory(): GsonFactory {
 		return JSON_FACTORY
@@ -48,53 +51,63 @@ object DriveService {
 	}
 
 	suspend fun getService(): Drive {
-		return withContext(Dispatchers.IO) {
-			driveService
-				?: run {
-					val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
-					val service =
-						Drive.Builder(httpTransport, JSON_FACTORY) { request ->
-								val credential = getCredentials(httpTransport)
-								credential.initialize(request)
-								request.connectTimeout = Constants.TIMEOUT_MS
-								request.readTimeout = Constants.TIMEOUT_MS
-							}
-							.setApplicationName(Constants.APPLICATION_NAME)
-							.build()
-					driveService = service
-					service
-				}
+		mutex.withLock {
+			return withContext(Dispatchers.IO) {
+				driveService
+					?: run {
+						val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
+						val credential = getCredentials(httpTransport)
+						val service =
+							Drive.Builder(httpTransport, JSON_FACTORY) { request ->
+									credential.initialize(request)
+									request.connectTimeout = Constants.TIMEOUT_MS
+									request.readTimeout = Constants.TIMEOUT_MS
+								}
+								.setApplicationName(Constants.APPLICATION_NAME)
+								.build()
+						driveService = service
+						service
+					}
+			}
 		}
 	}
 
-	fun logout() {
-		try {
-			val tokensDirectoryPath = File(Constants.TOKENS_DIRECTORY_PATH)
-			if (tokensDirectoryPath.exists()) {
-				tokensDirectoryPath.deleteRecursively()
+	suspend fun logout() {
+		mutex.withLock {
+			withContext(Dispatchers.IO) {
+				try {
+					val tokensDirectoryPath = File(Constants.TOKENS_DIRECTORY_PATH)
+					if (tokensDirectoryPath.exists()) {
+						tokensDirectoryPath.deleteRecursively()
+					}
+					driveService = null
+					State.isConnected = false
+					withContext(Dispatchers.Main) {
+						State.screen = Screen.MAIN
+						State.clearSelection()
+						State.items.clear()
+						State.unlinkedItems.clear()
+						State.duplicateItems.clear()
+					}
+				} catch (exception: Exception) {
+					exception.printStackTrace()
+				}
 			}
-			driveService = null
-			State.isConnected = false
-			State.screen = Screen.MAIN
-			State.clearSelection()
-			State.items.clear()
-			State.unlinkedItems.clear()
-			State.duplicateItems.clear()
-		} catch (exception: Exception) {
-			exception.printStackTrace()
 		}
 	}
 
 	suspend fun downloadFileBytes(service: Drive, id: String): ByteArray {
 		val baos = ByteArrayOutputStream()
-		service.files().get(id).executeMediaAndDownloadTo(baos)
+		withContext(Dispatchers.IO) { service.files().get(id).executeMediaAndDownloadTo(baos) }
 		val bytes = baos.toByteArray()
 		return bytes
 	}
 
 	suspend fun downloadLinkBytes(service: Drive, link: String): ByteArray {
-		val resp = service.requestFactory.buildGetRequest(GenericUrl(link)).execute()
-		val bytes = resp.content.use { it.readBytes() }
-		return bytes
+		return withContext(Dispatchers.IO) {
+			val resp = service.requestFactory.buildGetRequest(GenericUrl(link)).execute()
+			val bytes = resp.content.use { it.readBytes() }
+			bytes
+		}
 	}
 }

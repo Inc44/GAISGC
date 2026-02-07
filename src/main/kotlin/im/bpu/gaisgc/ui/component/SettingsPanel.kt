@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +34,7 @@ import im.bpu.gaisgc.State
 import im.bpu.gaisgc.manager.CacheManager
 import im.bpu.gaisgc.model.RelinkMethod
 import im.bpu.gaisgc.service.DriveService
+import kotlinx.coroutines.launch
 
 private val RelinkMethod.displayName: String
 	get() =
@@ -47,6 +49,7 @@ private val RelinkMethod.displayName: String
 @Composable
 fun SettingsPanel() {
 	var relinkMenuExpanded by remember { mutableStateOf(false) }
+	val scope = rememberCoroutineScope()
 	Column(
 		modifier =
 			Modifier.fillMaxSize()
@@ -144,7 +147,7 @@ fun SettingsPanel() {
 			Text("Clear Cache")
 		}
 		Button(
-			onClick = { DriveService.logout() },
+			onClick = { scope.launch { DriveService.logout() } },
 			colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 		) {
 			Text("Log out")
