@@ -22,7 +22,7 @@ object State {
 	private val properties = Properties()
 	private val configFile = File(Constants.CONFIG_FILE_PATH)
 	private val shiftRangeIds = mutableListOf<String>()
-	val cacheDirectoryPath = File(System.getProperty("user.home"), ".gaisgc/cache")
+	val cacheDirectoryPath = File(Constants.CACHE_DIRECTORY_PATH)
 	var isConnected by mutableStateOf(false)
 	var screen by mutableStateOf(Screen.MAIN)
 	var gaisPath by mutableStateOf(Constants.DEFAULT_GAIS_PATH)

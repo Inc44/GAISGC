@@ -96,7 +96,7 @@ js-beautify -v
 - Download `credentials.json`
 - Add [Test user](https://console.cloud.google.com/auth/audience)
 
-Move `credentials.json` to `path/to/GAISGC` or set environment variable:
+Move `credentials.json` to `~/.gaisgc` or set environment variable:
 
 ```powershell
 setx /M CREDENTIALS_JSON_PATH your_credentials_json_path

@@ -1,5 +1,7 @@
 package im.bpu.gaisgc.model
 
+import java.io.File
+
 object Constants {
 	const val APPLICATION_NAME = "GAISGC"
 	const val LUMINANCE_THRESHOLD = 0.128
@@ -16,12 +18,15 @@ object Constants {
 	const val CREATED_TIME_MODIFICATION_PROPERTY = "createdTimeModification"
 	const val RELINK_METHOD_PROPERTY = "relinkMethod"
 
-	const val CONFIG_FILE_PATH = "config.properties"
+	private val APP_DIRECTORY = File(System.getProperty("user.home"), ".gaisgc").apply { mkdirs() }
+	val CONFIG_FILE_PATH = File(APP_DIRECTORY, "config.properties").absolutePath!!
+	val CREDENTIALS_FILE_PATH = File(APP_DIRECTORY, "credentials.json").absolutePath!!
+	val TOKENS_DIRECTORY_PATH = File(APP_DIRECTORY, "tokens").absolutePath!!
+	val CACHE_DIRECTORY_PATH = File(APP_DIRECTORY, "cache").absolutePath!!
+
 	const val CREDENTIALS_JSON_PATH = "CREDENTIALS_JSON_PATH"
-	const val CREDENTIALS_FILE_PATH = "credentials.json"
 	const val DEFAULT_GAIS_PATH = "Google AI Studio"
 	const val DEFAULT_DUPLICATES_PATH = DEFAULT_GAIS_PATH
-	const val TOKENS_DIRECTORY_PATH = "tokens"
 
 	const val DEFAULT_HEIGHT = 800
 	const val DEFAULT_WIDTH = 1200
