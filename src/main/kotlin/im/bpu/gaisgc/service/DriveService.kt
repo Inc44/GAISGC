@@ -94,10 +94,12 @@ object DriveService {
 			}
 		}
 
-	suspend fun downloadFile(service: Drive, id: String, file: File): FileOutputStream {
-		val fos = FileOutputStream(file)
-		withContext(Dispatchers.IO) { service.files().get(id).executeMediaAndDownloadTo(fos) }
-		return fos
+	suspend fun downloadFile(service: Drive, id: String, file: File) {
+		withContext(Dispatchers.IO) {
+			FileOutputStream(file).use { fos ->
+				service.files().get(id).executeMediaAndDownloadTo(fos)
+			}
+		}
 	}
 
 	suspend fun downloadFileBytes(service: Drive, id: String): ByteArray {
