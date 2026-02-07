@@ -203,14 +203,14 @@ object DriveManager {
 						} else if (item.subItems.any { it.id == id }) {
 							val updatedSubItems =
 								item.subItems.map { subItem ->
-									if (subItem.id == id) {
+									if (subItem.id == id)
 										subItem.copy(
 											id = newId,
 											name = name,
 											createdTime = createdTime,
 											modifiedTime = modifiedTime,
 										)
-									} else subItem
+									else subItem
 								}
 							val updatedItem = item.copy(subItems = updatedSubItems)
 							State.items[index] = updatedItem

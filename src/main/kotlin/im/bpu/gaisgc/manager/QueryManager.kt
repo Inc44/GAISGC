@@ -31,8 +31,8 @@ object QueryManager {
 		return files
 	}
 
-	fun getFileDetails(service: Drive, fileId: String): Item {
-		return try {
+	fun getFileDetails(service: Drive, fileId: String): Item =
+		try {
 			val file =
 				service
 					.files()
@@ -60,7 +60,6 @@ object QueryManager {
 			if (exception.statusCode == 404) Item(id = fileId, name = fileId, isNotFound = true)
 			else throw exception
 		}
-	}
 
 	suspend fun getFolderId(service: Drive, path: String): String? =
 		withContext(Dispatchers.IO) {
@@ -110,8 +109,8 @@ object QueryManager {
 		val queue = ArrayDeque<String>()
 		queue.add(parentId)
 		while (queue.isNotEmpty()) {
-			val parentId = queue.removeFirst()
-			val children = getChildFilesByParent(service, parentId)
+			val currentParentId = queue.removeFirst()
+			val children = getChildFilesByParent(service, currentParentId)
 			children.forEach { child ->
 				if (child.mimeType == Constants.MIME_FOLDER) queue.add(child.id)
 				else files.add(child)

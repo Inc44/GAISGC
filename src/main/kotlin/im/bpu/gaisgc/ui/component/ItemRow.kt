@@ -66,10 +66,7 @@ fun ItemRow(
 			.background(background)
 			.combinedClickable(
 				onClick = { onClick?.invoke() },
-				onDoubleClick =
-					if (canEdit) {
-						{ showEditDialog = true }
-					} else null,
+				onDoubleClick = if (canEdit) ({ showEditDialog = true }) else null,
 			)
 			.padding(horizontal = 8.dp, vertical = 8.dp)
 	Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
