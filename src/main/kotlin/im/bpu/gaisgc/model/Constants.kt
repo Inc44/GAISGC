@@ -4,7 +4,7 @@ object Constants {
 	const val APPLICATION_NAME = "GAISGC"
 	const val LUMINANCE_THRESHOLD = 0.128
 	const val MAX_VIDEO_SIZE = 25 * 1024 * 1024
-	const val PORT = 8888
+	const val PORT = 0
 	const val TIMEOUT_MS = 0
 	const val USER_ID = "user"
 

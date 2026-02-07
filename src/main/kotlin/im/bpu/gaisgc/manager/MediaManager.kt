@@ -8,6 +8,8 @@ import im.bpu.gaisgc.service.DriveService
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.math.pow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Image
 
 object MediaManager {
@@ -17,33 +19,34 @@ object MediaManager {
 	private fun relativeLuminance(r: Double, g: Double, b: Double) =
 		0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b)
 
-	fun isVideoThumbnailBlack(bytes: ByteArray): Boolean {
-		return try {
-			val bais = bytes.inputStream()
-			val img = ImageIO.read(bais) ?: return false
-			val width = img.width
-			val height = img.height
-			var luminance = 0.0
-			val pixelCount = width * height
-			val rgbPixels = img.getRGB(0, 0, width, height, null, 0, width)
-			for (rgbPixel in rgbPixels) {
-				val r = ((rgbPixel shr 16) and 0xFF) / 255.0
-				val g = ((rgbPixel shr 8) and 0xFF) / 255.0
-				val b = (rgbPixel and 0xFF) / 255.0
-				luminance += relativeLuminance(r, g, b)
+	suspend fun isVideoThumbnailBlack(bytes: ByteArray): Boolean =
+		withContext(Dispatchers.Default) {
+			try {
+				val bais = bytes.inputStream()
+				val img = ImageIO.read(bais) ?: return@withContext false
+				val width = img.width
+				val height = img.height
+				var luminance = 0.0
+				val pixelCount = width * height
+				val rgbPixels = img.getRGB(0, 0, width, height, null, 0, width)
+				for (rgbPixel in rgbPixels) {
+					val r = ((rgbPixel shr 16) and 0xFF) / 255.0
+					val g = ((rgbPixel shr 8) and 0xFF) / 255.0
+					val b = (rgbPixel and 0xFF) / 255.0
+					luminance += relativeLuminance(r, g, b)
+				}
+				(luminance / pixelCount) < Constants.LUMINANCE_THRESHOLD
+			} catch (exception: Exception) {
+				false
 			}
-			(luminance / pixelCount) < Constants.LUMINANCE_THRESHOLD
-		} catch (exception: Exception) {
-			false
 		}
-	}
 
 	private fun getVideoDuration(videoFile: File): Double? {
 		val ffmpegProcess =
 			ProcessBuilder("ffmpeg", "-i", videoFile.absolutePath).redirectErrorStream(true).start()
 		val ffmpegProcessIS = ffmpegProcess.inputStream
-		val reader = ffmpegProcessIS.reader()
-		val text = reader.readText()
+		val bufferedReader = ffmpegProcessIS.bufferedReader()
+		val text = bufferedReader.readText()
 		ffmpegProcess.waitFor()
 		val regex = Regex("Duration: (\\d+):(\\d+):(\\d+)\\.(\\d+)")
 		val match = regex.find(text) ?: return null
@@ -80,15 +83,14 @@ object MediaManager {
 				extractVideoFrame(videoFile, duration / 2, imageFile)
 				if (imageFile.exists() && imageFile.length() > 0) {
 					val bytes = imageFile.readBytes()
-					val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
-					image
+					Image.makeFromEncoded(bytes).toComposeImageBitmap()
 				} else null
 			} else null
 		} catch (exception: Exception) {
 			null
 		} finally {
-			if (videoFile.exists()) videoFile.delete()
-			if (imageFile.exists()) imageFile.delete()
+			videoFile.delete()
+			imageFile.delete()
 		}
 	}
 }

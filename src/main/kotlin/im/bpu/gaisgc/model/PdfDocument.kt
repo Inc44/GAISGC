@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import java.io.Closeable
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -11,7 +12,11 @@ import kotlinx.coroutines.withContext
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.rendering.PDFRenderer
 
-class PdfDocument(private val document: PDDocument, firstPage: ImageBitmap) : Closeable {
+class PdfDocument(
+	private val document: PDDocument,
+	firstPage: ImageBitmap,
+	private val pdfFile: File,
+) : Closeable {
 	val pages = mutableStateListOf(firstPage)
 	@Volatile private var isClosed = false
 
@@ -35,6 +40,9 @@ class PdfDocument(private val document: PDDocument, firstPage: ImageBitmap) : Cl
 
 	override fun close() {
 		isClosed = true
-		synchronized(document) { document.close() }
+		synchronized(document) {
+			document.close()
+			if (pdfFile.exists()) pdfFile.delete()
+		}
 	}
 }

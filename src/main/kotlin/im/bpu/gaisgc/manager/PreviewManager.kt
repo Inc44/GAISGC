@@ -44,12 +44,11 @@ object PreviewManager {
 			try {
 				val service = DriveService.getService()
 				DriveService.downloadFile(service, id, documentFile)
-				val lines = documentFile.readLines()
-				lines
+				documentFile.readLines()
 			} catch (exception: Exception) {
 				null
 			} finally {
-				if (documentFile.exists()) documentFile.delete()
+				documentFile.delete()
 			}
 		}
 
@@ -58,8 +57,7 @@ object PreviewManager {
 			try {
 				val service = DriveService.getService()
 				val bytes = DriveService.downloadFileBytes(service, id)
-				val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
-				image
+				Image.makeFromEncoded(bytes).toComposeImageBitmap()
 			} catch (exception: Exception) {
 				null
 			}
@@ -80,11 +78,11 @@ object PreviewManager {
 				val firstPdfPageWidthPts = document.getPage(0).mediaBox.width
 				val dpi = (previewPaneWidthPx * 72f) / firstPdfPageWidthPts
 				val firstPdfPage = renderer.renderImageWithDPI(0, dpi).toComposeImageBitmap()
-				val pdfDocument = PdfDocument(document, firstPdfPage)
+				val pdfDocument = PdfDocument(document, firstPdfPage, pdfFile)
 				pdfDocument.renderRemaining(scope, previewPaneWidthPx)
 				pdfDocument
 			} catch (exception: Exception) {
-				if (pdfFile.exists()) pdfFile.delete()
+				pdfFile.delete()
 				null
 			}
 		}

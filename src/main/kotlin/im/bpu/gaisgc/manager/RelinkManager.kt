@@ -36,29 +36,15 @@ object RelinkManager {
 			val baos = ByteArrayOutputStream()
 			service.files().get(chatId).executeMediaAndDownloadTo(baos)
 			var content = baos.toString("UTF-8")
-			var modified = false
-			when (relinkMethod) {
-				RelinkMethod.DIRECT -> {
-					val relinkStatus = relinkDirect(content, chatMatches)
-					content = relinkStatus.first
-					modified = relinkStatus.second
-				}
-				RelinkMethod.REGEX -> {
-					val relinkStatus = relinkRegex(content, chatMatches)
-					content = relinkStatus.first
-					modified = relinkStatus.second
-				}
-				RelinkMethod.PRETTY -> {
-					val relinkStatus = relinkJson(content, chatMatches, pretty = true)
-					content = relinkStatus.first
-					modified = relinkStatus.second
-				}
-				RelinkMethod.JS_BEAUTIFY -> {
-					val relinkStatus = relinkJsBeautify(content, chatMatches)
-					content = relinkStatus.first
-					modified = relinkStatus.second
-				}
+			val relinkStatus =
+				when (relinkMethod) {
+				RelinkMethod.DIRECT -> relinkDirect(content, chatMatches)
+				RelinkMethod.REGEX -> relinkRegex(content, chatMatches)
+				RelinkMethod.PRETTY -> relinkJson(content, chatMatches, pretty = true)
+				RelinkMethod.JS_BEAUTIFY -> relinkJsBeautify(content, chatMatches)
 			}
+			val modified = relinkStatus.second
+			content = relinkStatus.first
 			if (modified) {
 				updateChat(service, chatId, content)
 				removeSelections(chatId, chatMatches)
@@ -165,7 +151,7 @@ object RelinkManager {
 		} catch (exception: Exception) {
 			json
 		} finally {
-			if (chatFile.exists()) chatFile.delete()
+			chatFile.delete()
 		}
 	}
 
