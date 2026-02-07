@@ -1,6 +1,7 @@
 package im.bpu.gaisgc.manager
 
 import com.google.api.client.util.DateTime
+import com.google.api.services.drive.Drive
 import com.google.api.services.drive.model.File as DriveFile
 import im.bpu.gaisgc.State
 import im.bpu.gaisgc.model.Constants
@@ -18,129 +19,118 @@ import kotlinx.coroutines.withContext
 
 object DriveManager {
 	suspend fun fetch() = coroutineScope {
+		resetState()
+		val service = DriveService.getService()
+		val chatFiles = QueryManager.getFilesByMime(service, Constants.MIME_PROMPT)
+		val chatItems = chatFiles.map { fileToItem(it) }
+		withContext(Dispatchers.Main) { State.items.addAll(chatItems) }
+		val deferredSubItems = getDeferredSubItems(service, chatFiles)
+		loadOrphanItems(service, deferredSubItems)
+		loadDuplicateItems(service, deferredSubItems)
+	}
+
+	private suspend fun resetState() =
 		withContext(Dispatchers.Main) {
 			State.clearSelection()
 			State.items.clear()
 			State.unlinkedItems.clear()
 			State.duplicateItems.clear()
 		}
-		val service = DriveService.getService()
-		val chatFiles = QueryManager.getFilesByMime(service, Constants.MIME_PROMPT)
-		val chatItems =
-			chatFiles.map {
-				Item(
-					createdTime = it.createdTime?.value ?: 0L,
-					id = it.id,
-					modifiedTime = it.modifiedTime?.value ?: 0L,
-					name = it.name,
-					sha256Checksum = it.sha256Checksum,
-				)
-			}
-		withContext(Dispatchers.Main) { State.items.addAll(chatItems) }
-		val deferredSubItems =
-			chatFiles.indices.map { i ->
+
+	private suspend fun getDeferredSubItems(
+		service: Drive,
+		chatFiles: List<DriveFile>,
+	): List<Item> = coroutineScope {
+		chatFiles
+			.mapIndexed { i, file ->
 				async(Dispatchers.IO) {
-					val file = chatFiles[i]
-					val cachedItem =
-						if (State.cache) CacheManager.loadFromCache(file.id, file.sha256Checksum)
-						else null
-					val subItems =
-						if (cachedItem != null) cachedItem.subItems
-						else {
-							val subItemIds = ChatParser.getChatSubItems(service, file.id)
-							val fetchedSubItems =
-								subItemIds.map { id -> QueryManager.getFileDetails(service, id) }
-							if (State.cache)
-								CacheManager.saveToCache(
-									file.createdTime?.value ?: 0L,
-									file.id,
-									file.modifiedTime?.value ?: 0L,
-									file.name,
-									file.sha256Checksum,
-									fetchedSubItems,
-								)
-							fetchedSubItems
-						}
-					withContext(Dispatchers.Main) {
-						State.items[i] =
-							Item(
-								createdTime = file.createdTime?.value ?: 0L,
-								id = file.id,
-								modifiedTime = file.modifiedTime?.value ?: 0L,
-								name = file.name,
-								sha256Checksum = file.sha256Checksum,
-								subItems = subItems,
-							)
-					}
-					subItems
+					val subItems = getSubItems(service, file)
+					val item = fileToItem(file).copy(subItems = subItems)
+					withContext(Dispatchers.Main) { State.items[i] = item }
+					item
 				}
 			}
-		val referencedItems = deferredSubItems.awaitAll().flatten()
-		val referencedItemIds = referencedItems.map { it.id }.toSet()
-		val chatIds = chatFiles.map { it.id }.toSet()
-		val gaisFolderId = QueryManager.getFolderId(service, State.gaisPath)
-		if (gaisFolderId != null) {
-			val gaisFolderFiles = QueryManager.getChildFilesByParent(service, gaisFolderId)
-			val gaisFolderItems =
-				gaisFolderFiles.map {
-					Item(
-						createdTime = it.createdTime?.value ?: 0L,
-						fileExtension = it.fileExtension,
-						id = it.id,
-						mimeType = it.mimeType ?: "",
-						modifiedTime = it.modifiedTime?.value ?: 0L,
-						name = it.name,
-						sha256Checksum = it.sha256Checksum,
-						size = it.getSize() ?: 0L,
-					)
-				}
-			val orphanItems =
-				gaisFolderItems
-					.filter { it.id !in chatIds && it.id !in referencedItemIds }
-					.map { it.copy(isNotFound = true) }
-			withContext(Dispatchers.Main) { State.unlinkedItems.addAll(orphanItems) }
-		}
-		val duplicatesFolderId = QueryManager.getFolderId(service, State.duplicatesPath)
-		if (duplicatesFolderId != null) {
-			val duplicatesFolderFiles =
-				QueryManager.getDescendantFilesByParent(service, duplicatesFolderId)
-			val duplicatesFolderItems =
-				duplicatesFolderFiles.map {
-					Item(
-						createdTime = it.createdTime?.value ?: 0L,
-						fileExtension = it.fileExtension,
-						id = it.id,
-						mimeType = it.mimeType ?: "",
-						modifiedTime = it.modifiedTime?.value ?: 0L,
-						name = it.name,
-						sha256Checksum = it.sha256Checksum,
-						size = it.getSize() ?: 0L,
-					)
-				}
-			val duplicateItems =
-				DuplicateManager.findDuplicates(State.items.toList(), duplicatesFolderItems)
-			withContext(Dispatchers.Main) { State.duplicateItems.addAll(duplicateItems) }
-		}
+			.awaitAll()
 	}
+
+	private fun getSubItems(service: Drive, file: DriveFile): List<Item> {
+		val cachedItem =
+			if (State.cache) CacheManager.loadFromCache(file.id, file.sha256Checksum) else null
+		if (cachedItem != null) return cachedItem.subItems
+		val subItemIds = ChatParser.getChatSubItems(service, file.id)
+		val fetchedSubItems = subItemIds.map { id -> QueryManager.getFileDetails(service, id) }
+		if (State.cache) {
+			CacheManager.saveToCache(
+				file.createdTime?.value ?: 0L,
+				file.id,
+				file.modifiedTime?.value ?: 0L,
+				file.name,
+				file.sha256Checksum,
+				fetchedSubItems,
+			)
+		}
+		return fetchedSubItems
+	}
+
+	private suspend fun loadOrphanItems(service: Drive, chatItems: List<Item>) {
+		val referencedItems = chatItems.flatMap { it.subItems }
+		val referencedItemIds = referencedItems.map { it.id }.toSet()
+		val chatIds = chatItems.map { it.id }.toSet()
+		val gaisFolderId = QueryManager.getFolderId(service, State.gaisPath) ?: return
+		val gaisFolderFiles = QueryManager.getChildFilesByParent(service, gaisFolderId)
+		val gaisFolderItems =
+			gaisFolderFiles
+				.filter { it.id !in chatIds && it.id !in referencedItemIds }
+				.map { fileToDetailedItem(it).copy(isNotFound = true) }
+		withContext(Dispatchers.Main) { State.unlinkedItems.addAll(gaisFolderItems) }
+	}
+
+	private suspend fun loadDuplicateItems(service: Drive, chatItems: List<Item>) {
+		val duplicatesFolderId = QueryManager.getFolderId(service, State.duplicatesPath) ?: return
+		val duplicatesFolderFiles =
+			QueryManager.getDescendantFilesByParent(service, duplicatesFolderId)
+		val duplicatesFolderItems = duplicatesFolderFiles.map { fileToDetailedItem(it) }
+		val duplicateItems = DuplicateManager.findDuplicates(chatItems, duplicatesFolderItems)
+		withContext(Dispatchers.Main) { State.duplicateItems.addAll(duplicateItems) }
+	}
+
+	private fun fileToItem(file: DriveFile) =
+		Item(
+			createdTime = file.createdTime?.value ?: 0L,
+			id = file.id,
+			modifiedTime = file.modifiedTime?.value ?: 0L,
+			name = file.name,
+			sha256Checksum = file.sha256Checksum,
+		)
+
+	private fun fileToDetailedItem(file: DriveFile) =
+		Item(
+			createdTime = file.createdTime?.value ?: 0L,
+			fileExtension = file.fileExtension,
+			id = file.id,
+			mimeType = file.mimeType ?: "",
+			modifiedTime = file.modifiedTime?.value ?: 0L,
+			name = file.name,
+			sha256Checksum = file.sha256Checksum,
+			size = file.getSize() ?: 0L,
+		)
 
 	suspend fun trash(ids: List<String>) =
 		withContext(Dispatchers.IO) {
 			val service = DriveService.getService()
-			coroutineScope {
-				ids.forEach { id ->
-					launch {
-						try {
-							val file = DriveFile()
-							file.trashed = true
-							service.files().update(id, file).execute()
-							withContext(Dispatchers.Main) {
-								State.unlinkedItems.removeIf { it.id == id }
-								State.selectedIds.remove(id)
-								if (State.lastSelectedId == id) State.lastSelectedId = null
-							}
-						} catch (exception: Exception) {
-							exception.printStackTrace()
+			ids.forEach { id ->
+				launch {
+					try {
+						val file = DriveFile()
+						file.trashed = true
+						service.files().update(id, file).execute()
+						withContext(Dispatchers.Main) {
+							State.unlinkedItems.removeIf { it.id == id }
+							State.selectedIds.remove(id)
+							if (State.lastSelectedId == id) State.lastSelectedId = null
 						}
+					} catch (exception: Exception) {
+						exception.printStackTrace()
 					}
 				}
 			}
@@ -187,65 +177,72 @@ object DriveManager {
 					file.modifiedTime = DateTime(modifiedTime)
 					service.files().update(id, file).execute()
 				}
-				withContext(Dispatchers.Main) {
-					for (index in State.items.indices) {
-						val item = State.items[index]
-						if (item.id == id) {
-							val updatedItem =
-								item.copy(
+				updateState(id, newId, name, createdTime, modifiedTime)
+			} catch (exception: Exception) {
+				exception.printStackTrace()
+			}
+		}
+
+	private suspend fun updateState(
+		id: String,
+		newId: String,
+		name: String,
+		createdTime: Long,
+		modifiedTime: Long,
+	) =
+		withContext(Dispatchers.Main) {
+			val iter = State.items.listIterator()
+			while (iter.hasNext()) {
+				val item = iter.next()
+				if (item.id == id) {
+					iter.set(
+						item.copy(
+							id = newId,
+							name = name,
+							createdTime = createdTime,
+							modifiedTime = modifiedTime,
+						)
+					)
+					File(State.cacheDirectoryPath, id).delete()
+				} else if (item.subItems.any { it.id == id }) {
+					val updatedSubItems =
+						item.subItems.map { subItem ->
+							if (subItem.id == id)
+								subItem.copy(
 									id = newId,
 									name = name,
 									createdTime = createdTime,
 									modifiedTime = modifiedTime,
 								)
-							State.items[index] = updatedItem
-							File(State.cacheDirectoryPath, id).delete()
-						} else if (item.subItems.any { it.id == id }) {
-							val updatedSubItems =
-								item.subItems.map { subItem ->
-									if (subItem.id == id)
-										subItem.copy(
-											id = newId,
-											name = name,
-											createdTime = createdTime,
-											modifiedTime = modifiedTime,
-										)
-									else subItem
-								}
-							val updatedItem = item.copy(subItems = updatedSubItems)
-							State.items[index] = updatedItem
-							File(State.cacheDirectoryPath, item.id).delete()
+							else subItem
 						}
-					}
+					iter.set(item.copy(subItems = updatedSubItems))
+					File(State.cacheDirectoryPath, item.id).delete()
 				}
-			} catch (exception: Exception) {
-				exception.printStackTrace()
 			}
 		}
 
 	suspend fun relink(id: String, newId: String) =
 		withContext(Dispatchers.IO) {
 			val chatItems = State.items.filter { it.subItems.any { subItem -> subItem.id == id } }
-			if (chatItems.isNotEmpty()) {
-				val matches =
-					chatItems.map { chatItem ->
-						val subItem = chatItem.subItems.first { it.id == id }
-						val newSubItem = subItem.copy(id = newId)
-						DuplicateMatch(chatItem, subItem, newSubItem)
-					}
-				RelinkManager.relink(matches)
-				withContext(Dispatchers.Main) {
-					for (index in State.items.indices) {
-						val chatItem = State.items[index]
-						if (chatItem.subItems.any { it.id == id }) {
-							val updatedSubItems =
-								chatItem.subItems.map {
-									if (it.id == id)
-										it.copy(id = newId, isNotFound = false, name = newId)
-									else it
-								}
-							State.items[index] = chatItem.copy(subItems = updatedSubItems)
-						}
+			if (chatItems.isEmpty()) return@withContext
+			val matches =
+				chatItems.map { chatItem ->
+					val subItem = chatItem.subItems.first { it.id == id }
+					val newSubItem = subItem.copy(id = newId)
+					DuplicateMatch(chatItem, subItem, newSubItem)
+				}
+			RelinkManager.relink(matches)
+			withContext(Dispatchers.Main) {
+				State.items.forEachIndexed { index, chatItem ->
+					if (chatItem.subItems.any { it.id == id }) {
+						val updatedSubItems =
+							chatItem.subItems.map {
+								if (it.id == id)
+									it.copy(id = newId, isNotFound = false, name = newId)
+								else it
+							}
+						State.items[index] = chatItem.copy(subItems = updatedSubItems)
 					}
 				}
 			}

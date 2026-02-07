@@ -102,7 +102,11 @@ fun ItemRow(
 }
 
 @Composable
-fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, String, Long, Long) -> Unit) {
+private fun EditDialog(
+	item: Item,
+	onDismiss: () -> Unit,
+	onConfirm: (String, String, Long, Long) -> Unit,
+) {
 	val dateTimeFormatter = remember { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()) }
 	var id by remember { mutableStateOf(item.id) }
 	var name by remember { mutableStateOf(item.name) }
@@ -160,19 +164,13 @@ fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, String, Lo
 		confirmButton = {
 			TextButton(
 				onClick = {
-					try {
-						val createdTime =
-							if (createdTimeStr.isNotEmpty())
-								dateTimeFormatter.parse(createdTimeStr).time
-							else item.createdTime
-						val modifiedTime =
-							if (modifiedTimeStr.isNotEmpty())
-								dateTimeFormatter.parse(modifiedTimeStr).time
-							else item.modifiedTime
-						onConfirm(id, name, createdTime, modifiedTime)
-					} catch (exception: Exception) {
-						exception.printStackTrace()
-					}
+					val createdTime =
+						runCatching { dateTimeFormatter.parse(createdTimeStr).time }
+							.getOrDefault(item.createdTime)
+					val modifiedTime =
+						runCatching { dateTimeFormatter.parse(modifiedTimeStr).time }
+							.getOrDefault(item.modifiedTime)
+					onConfirm(id, name, createdTime, modifiedTime)
 				}
 			) {
 				Text("Save")
