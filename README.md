@@ -13,6 +13,10 @@
 
 Google AI Studio Garbage Collector
 
+## ⚠️ Disclaimers
+
+- **Created Time Modification**: The Google Drive API doesn't allow updating the created time; instead, it copies the file, trashes the original, and relinks chats. Therefore, some metadata may be lost.
+
 ## 🚀 Installation
 
 ### From Source
