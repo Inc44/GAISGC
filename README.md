@@ -88,6 +88,18 @@ ffmpeg -version
 js-beautify -v
 ```
 
+## 🛠️ Build from Source
+
+```bash
+gradlew createDistributable
+```
+
+Or (e.g., to produce .msi installer)
+
+```bash
+gradlew packageDistributionForCurrentOS
+```
+
 ## 🧾 Configuration
 
 - Create `GAISGC` project in [Google Cloud console](https://console.cloud.google.com)
