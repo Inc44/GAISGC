@@ -97,6 +97,13 @@ ffmpeg -version
 
 Not yet known.
 
+## 🚧 TODO
+
+- [ ] Android version
+	- [ ] Bottom navigation instead of a sidebar
+	- [ ] Slide-up preview from the bottom
+	- [ ] Video player
+
 ## 🙏 Thanks
 
 Creators of:
