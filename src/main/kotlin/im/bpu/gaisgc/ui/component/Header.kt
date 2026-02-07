@@ -32,11 +32,9 @@ fun Header(
 		if (
 			(State.screen == Screen.UNLINKED || State.screen == Screen.RELINKER) &&
 				maxWidth < 480.dp
-		) {
+		)
 			CompactHeader(onRefresh, onToggleFilters, onTrash, onRelink)
-		} else {
-			StandardHeader(onRefresh, onToggleFilters, onTrash, onRelink)
-		}
+		else StandardHeader(onRefresh, onToggleFilters, onTrash, onRelink)
 	}
 }
 
@@ -80,27 +78,24 @@ fun StandardHeader(
 }
 
 @Composable
-fun ScreenSpecificPathInput(modifier: Modifier) {
+fun ScreenSpecificPathInput(modifier: Modifier) =
 	when (State.screen) {
-		Screen.UNLINKED -> {
+		Screen.UNLINKED ->
 			PathInput(
 				value = State.gaisPath,
 				onValueChange = { State.saveGaisPath(it) },
 				label = "Google AI Studio Path",
 				modifier = modifier,
 			)
-		}
-		Screen.RELINKER -> {
+		Screen.RELINKER ->
 			PathInput(
 				value = State.duplicatesPath,
 				onValueChange = { State.saveDuplicatesPath(it) },
 				label = "Duplicates Path",
 				modifier = modifier,
 			)
-		}
-		else -> {}
+		else -> Unit
 	}
-}
 
 @Composable
 fun PathInput(value: String, onValueChange: (String) -> Unit, label: String, modifier: Modifier) {

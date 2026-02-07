@@ -15,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object RelinkManager {
-
 	suspend fun relink(matches: List<DuplicateMatch>) =
 		withContext(Dispatchers.IO) {
 			val service = DriveService.getService()
@@ -82,9 +81,7 @@ object RelinkManager {
 									if (relinkMethod == RelinkMethod.PRETTY) {
 										val json = JsonParser.parseString(contentString)
 										CacheManager.gson.toJson(json)
-									} else {
-										setJsBeautifyPrinting(contentString)
-									}
+									} else setJsBeautifyPrinting(contentString)
 							}
 						}
 					}
@@ -116,11 +113,9 @@ object RelinkManager {
 			val osName = System.getProperty("os.name").lowercase()
 			val isWindows = osName.contains("win")
 			val cmd =
-				if (isWindows) {
+				if (isWindows)
 					listOf("cmd.exe", "/c", "js-beautify", "-s", "2", "-r", chatFile.absolutePath)
-				} else {
-					listOf("js-beautify", "-s", "2", "-r", chatFile.absolutePath)
-				}
+				else listOf("js-beautify", "-s", "2", "-r", chatFile.absolutePath)
 			ProcessBuilder(cmd).start().waitFor()
 			val jsonFormatted = chatFile.readText()
 			jsonFormatted.ifEmpty { json }

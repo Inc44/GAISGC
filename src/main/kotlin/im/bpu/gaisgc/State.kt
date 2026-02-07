@@ -118,26 +118,22 @@ object State {
 		saveProperties()
 	}
 
-	private fun saveProperties() {
-		configFile.outputStream().use { properties.store(it, null) }
-	}
+	private fun saveProperties() = configFile.outputStream().use { properties.store(it, null) }
 
-	fun getFilteredUnlinkedItems(): List<Item> {
-		return unlinkedItems
+	fun getFilteredUnlinkedItems(): List<Item> =
+		unlinkedItems
 			.filter { it.name.contains(filterName, ignoreCase = true) }
 			.filter { matchesMimeType(it.mimeType) }
 			.sortedWith(getSortComparator())
-	}
 
-	fun getFilteredDuplicateItems(): List<DuplicateMatch> {
-		return duplicateItems
+	fun getFilteredDuplicateItems(): List<DuplicateMatch> =
+		duplicateItems
 			.filter {
 				it.chat.name.contains(filterName, ignoreCase = true) ||
 					it.duplicate.name.contains(filterName, ignoreCase = true)
 			}
 			.filter { matchesMimeType(it.duplicate.mimeType) }
 			.sortedWith { a, b -> getSortComparator().compare(a.chat, b.chat) }
-	}
 
 	private fun matchesMimeType(mimeType: String): Boolean {
 		val lowercaseMimeType = mimeType.lowercase()
@@ -176,21 +172,17 @@ object State {
 			!isVideo(mimeType) &&
 			!isAudio(mimeType)
 
-	private fun getSortComparator(): Comparator<Item> {
-		return when (sort) {
+	private fun getSortComparator(): Comparator<Item> =
+		when (sort) {
 			Sort.DATE_DESC -> compareByDescending { it.createdTime }
 			Sort.DATE_ASC -> compareBy { it.createdTime }
 			Sort.NAME_ASC -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.name }
 			Sort.NAME_DESC -> compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.name }
 		}
-	}
 
 	fun toggleSelection(id: String, ids: List<String>) {
-		if (isShiftPressed && lastSelectedId != null) {
-			selectRange(lastSelectedId!!, id, ids)
-		} else {
-			selectSingle(id)
-		}
+		if (isShiftPressed && lastSelectedId != null) selectRange(lastSelectedId!!, id, ids)
+		else selectSingle(id)
 	}
 
 	private fun selectSingle(id: String) {
@@ -221,9 +213,8 @@ object State {
 
 	fun selectAll(ids: List<String>) {
 		val allSelected = ids.all { it in selectedIds }
-		if (allSelected) {
-			selectedIds.removeAll(ids)
-		} else {
+		if (allSelected) selectedIds.removeAll(ids)
+		else {
 			val idsToAdd = ids.filter { it !in selectedIds }
 			selectedIds.addAll(idsToAdd)
 		}

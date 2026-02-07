@@ -49,8 +49,7 @@ object CacheManager {
 	}
 
 	fun clearCache() {
-		if (State.cacheDirectoryPath.exists()) {
+		if (State.cacheDirectoryPath.exists())
 			State.cacheDirectoryPath.listFiles()?.forEach { it.delete() }
-		}
 	}
 }

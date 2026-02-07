@@ -18,7 +18,6 @@ import org.apache.pdfbox.rendering.PDFRenderer
 import org.jetbrains.skia.Image
 
 object PreviewManager {
-
 	suspend fun loadPreview(item: Item, scope: CoroutineScope, previewPaneWidthPx: Float) {
 		State.previewId = item.id
 		State.selectedDocument.clear()
@@ -31,15 +30,11 @@ object PreviewManager {
 				val lines = getDocumentById(item.id)
 				if (lines != null) State.selectedDocument.addAll(lines)
 			}
-			State.isPhoto(lowercaseMimeType) -> {
-				State.selectedImage = getImageById(item.id)
-			}
-			State.isPdf(lowercaseMimeType) -> {
+			State.isPhoto(lowercaseMimeType) -> State.selectedImage = getImageById(item.id)
+			State.isPdf(lowercaseMimeType) ->
 				State.selectedPdf = getPdfById(item.id, scope, previewPaneWidthPx)
-			}
-			State.isVideo(lowercaseMimeType) -> {
+			State.isVideo(lowercaseMimeType) ->
 				State.selectedImage = getVideoById(item.id, item.size)
-			}
 		}
 	}
 
@@ -104,13 +99,9 @@ object PreviewManager {
 					State.middleFrame &&
 						size < Constants.MAX_VIDEO_SIZE &&
 						isVideoThumbnailBlack(bytes)
-				) {
-					val image = getVideoMiddleFrame(service, id)
-					image
-				} else {
-					val image = Image.makeFromEncoded(bytes).toComposeImageBitmap()
-					image
-				}
+				)
+					getVideoMiddleFrame(service, id)
+				else Image.makeFromEncoded(bytes).toComposeImageBitmap()
 			} catch (exception: Exception) {
 				null
 			}

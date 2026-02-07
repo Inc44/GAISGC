@@ -92,7 +92,7 @@ fun ItemRow(
 			}
 		}
 	}
-	if (showEditDialog) {
+	if (showEditDialog)
 		EditDialog(
 			item = item,
 			onDismiss = { showEditDialog = false },
@@ -102,7 +102,6 @@ fun ItemRow(
 				showEditDialog = false
 			},
 		)
-	}
 }
 
 @Composable
@@ -125,7 +124,7 @@ fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, String, Lo
 		title = { Text(if (item.isNotFound) "Edit ID" else "Edit Metadata") },
 		text = {
 			Column {
-				if (item.isNotFound) {
+				if (item.isNotFound)
 					OutlinedTextField(
 						value = id,
 						onValueChange = { id = it },
@@ -133,7 +132,7 @@ fun EditDialog(item: Item, onDismiss: () -> Unit, onConfirm: (String, String, Lo
 						singleLine = true,
 						modifier = Modifier.fillMaxWidth(),
 					)
-				} else {
+				else {
 					OutlinedTextField(
 						value = name,
 						onValueChange = { name = it },

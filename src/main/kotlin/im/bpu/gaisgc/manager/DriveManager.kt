@@ -17,7 +17,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object DriveManager {
-
 	suspend fun fetch() = coroutineScope {
 		withContext(Dispatchers.Main) {
 			State.clearSelection()
@@ -46,9 +45,8 @@ object DriveManager {
 						if (State.cache) CacheManager.loadFromCache(file.id, file.sha256Checksum)
 						else null
 					val subItems =
-						if (cachedItem != null) {
-							cachedItem.subItems
-						} else {
+						if (cachedItem != null) cachedItem.subItems
+						else {
 							val subItemIds = ChatParser.getChatSubItems(service, file.id)
 							val fetchedSubItems =
 								subItemIds.map { id -> QueryManager.getFileDetails(service, id) }
@@ -179,9 +177,7 @@ object DriveManager {
 							val newSubItem = subItem.copy(id = newFile.id)
 							DuplicateMatch(chatItem, subItem, newSubItem)
 						}
-					if (matches.isNotEmpty()) {
-						RelinkManager.relink(matches)
-					}
+					if (matches.isNotEmpty()) RelinkManager.relink(matches)
 					val metadataContentTrash = DriveFile().apply { trashed = true }
 					service.files().update(id, metadataContentTrash).execute()
 					newId = newFile.id
@@ -214,9 +210,7 @@ object DriveManager {
 											createdTime = createdTime,
 											modifiedTime = modifiedTime,
 										)
-									} else {
-										subItem
-									}
+									} else subItem
 								}
 							val updatedItem = item.copy(subItems = updatedSubItems)
 							State.items[index] = updatedItem

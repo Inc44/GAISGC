@@ -29,9 +29,7 @@ object DriveService {
 	private var driveService: Drive? = null
 	private val mutex = Mutex()
 
-	fun getJSONFactory(): GsonFactory {
-		return JSON_FACTORY
-	}
+	fun getJSONFactory() = JSON_FACTORY
 
 	private fun getCredentials(httpTransport: HttpTransport): Credential {
 		val file = File(Constants.CREDENTIALS_FILE_PATH)
@@ -97,15 +95,13 @@ object DriveService {
 	suspend fun downloadFileBytes(service: Drive, id: String): ByteArray {
 		val baos = ByteArrayOutputStream()
 		withContext(Dispatchers.IO) { service.files().get(id).executeMediaAndDownloadTo(baos) }
-		val bytes = baos.toByteArray()
-		return bytes
+		return baos.toByteArray()
 	}
 
 	suspend fun downloadLinkBytes(service: Drive, link: String): ByteArray {
 		return withContext(Dispatchers.IO) {
 			val resp = service.requestFactory.buildGetRequest(GenericUrl(link)).execute()
-			val bytes = resp.content.use { it.readBytes() }
-			bytes
+			resp.content.use { it.readBytes() }
 		}
 	}
 }

@@ -67,12 +67,13 @@ fun NavigationSideBar() {
 			selected = State.screen == Screen.SETTINGS,
 			onClick = {
 				val startTime = System.currentTimeMillis()
-				if (devModeClickCount.value == 0 || startTime - devModeClickTime.value > Constants.DEV_MODE_MS) {
+				if (
+					devModeClickCount.value == 0 ||
+						startTime - devModeClickTime.value > Constants.DEV_MODE_MS
+				) {
 					devModeClickCount.value = 1
 					devModeClickTime.value = startTime
-				} else {
-					devModeClickCount.value++
-				}
+				} else devModeClickCount.value++
 				if (devModeClickCount.value >= Constants.DEV_MODE_CLICKS) {
 					State.toggleDevMode()
 					devModeClickCount.value = 0

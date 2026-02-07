@@ -51,9 +51,8 @@ fun ApplicationLayout() {
 	LaunchedEffect(State.isConnected) { if (State.isConnected) DriveManager.fetch() }
 	MaterialTheme {
 		Scaffold(modifier = Modifier.onPreviewKeyEvent { handleKeyEvent(it, scope) }) { padding ->
-			if (!State.isConnected) {
-				ConnectView(modifier = Modifier.padding(padding).fillMaxSize())
-			} else {
+			if (!State.isConnected) ConnectView(modifier = Modifier.padding(padding).fillMaxSize())
+			else
 				Row(modifier = Modifier.padding(padding).fillMaxSize()) {
 					NavigationSideBar()
 					ContentArea(
@@ -77,11 +76,9 @@ fun ApplicationLayout() {
 						State.selectedDocument.isNotEmpty() ||
 							State.selectedImage != null ||
 							State.selectedPdf != null
-					) {
+					)
 						PreviewPane(modifier = Modifier.width(Constants.PREVIEW_PANE_WIDTH_DP.dp))
-					}
 				}
-			}
 		}
 	}
 }
@@ -142,7 +139,8 @@ private fun ContentArea(
 			onTrash = onTrash,
 			onRelink = onRelink,
 		)
-		if ((State.screen == Screen.UNLINKED || State.screen == Screen.RELINKER) && showFilters) FilterPanel()
+		if ((State.screen == Screen.UNLINKED || State.screen == Screen.RELINKER) && showFilters)
+			FilterPanel()
 		Box(
 			modifier =
 				Modifier.weight(1f).clickable(

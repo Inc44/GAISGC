@@ -12,14 +12,11 @@ import kotlin.math.pow
 import org.jetbrains.skia.Image
 
 object MediaManager {
+	private fun srgb(channel: Double) =
+		if (channel <= 0.04045) channel / 12.92 else ((channel + 0.055) / 1.055).pow(2.4)
 
-	private fun srgb(channel: Double): Double {
-		return if (channel <= 0.04045) channel / 12.92 else ((channel + 0.055) / 1.055).pow(2.4)
-	}
-
-	private fun relativeLuminance(r: Double, g: Double, b: Double): Double {
-		return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b)
-	}
+	private fun relativeLuminance(r: Double, g: Double, b: Double) =
+		0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b)
 
 	fun isVideoThumbnailBlack(bytes: ByteArray): Boolean {
 		return try {

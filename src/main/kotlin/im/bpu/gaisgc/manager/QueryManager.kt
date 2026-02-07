@@ -9,7 +9,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object QueryManager {
-
 	suspend fun getFilesByMime(service: Drive, mime: String): List<DriveFile> {
 		val files = mutableListOf<DriveFile>()
 		var pageToken: String? = null
@@ -44,9 +43,7 @@ object QueryManager {
 					.execute()
 			/*
 			val metadata = service.files().get(fileId).setFields("*").execute()
-			for (field in metadata.keys) {
-				println("$field")
-			}
+			for (field in metadata.keys) println("$field")
 			println("\n\n")
 			*/
 			Item(
