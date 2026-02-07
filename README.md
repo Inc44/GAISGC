@@ -91,7 +91,7 @@ ffmpeg -version
 
 ## 🐛 Bugs
 
-- Requires clicking the refresh button to update the UI after saving in the Edit dialog box.
+Not yet found.
 
 ## ⛔ Known Limitations
 

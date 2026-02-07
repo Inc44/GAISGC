@@ -155,9 +155,10 @@ object DriveManager {
 			try {
 				val service = DriveService.getService()
 				val currentFile =
-					service.files().get(id).setFields("createdTime, modifiedTime").execute()
+					service.files().get(id).setFields("createdTime, modifiedTime, name").execute()
 				val currentCreatedTime = currentFile.createdTime?.value ?: 0L
 				val currentModifiedTime = currentFile.modifiedTime?.value ?: 0L
+				val currentName = currentFile.name ?: ""
 				var newId = id
 				if (
 					State.devMode &&
@@ -172,27 +173,29 @@ object DriveManager {
 						}
 					val newFile =
 						service.files().copy(id, metadataContentCopy).setFields("id").execute()
-					val chatItem =
-						State.items.find { it.subItems.any { subItem -> subItem.id == id } }
-					if (chatItem != null) {
-						val subItem = chatItem.subItems.first { it.id == id }
-						val newSubItem = subItem.copy(id = newFile.id)
-						RelinkManager.relink(listOf(DuplicateMatch(chatItem, subItem, newSubItem)))
+					val chatItems =
+						State.items.filter { it.subItems.any { subItem -> subItem.id == id } }
+					val matches =
+						chatItems.map { chatItem ->
+							val subItem = chatItem.subItems.first { it.id == id }
+							val newSubItem = subItem.copy(id = newFile.id)
+							DuplicateMatch(chatItem, subItem, newSubItem)
+						}
+					if (matches.isNotEmpty()) {
+						RelinkManager.relink(matches)
 					}
 					val metadataContentTrash = DriveFile().apply { trashed = true }
 					service.files().update(id, metadataContentTrash).execute()
 					newId = newFile.id
-				} else if (modifiedTime != currentModifiedTime) {
+				} else if (modifiedTime != currentModifiedTime || name != currentName) {
 					val file = DriveFile()
 					file.name = name
 					file.modifiedTime = DateTime(modifiedTime)
 					service.files().update(id, file).execute()
 				}
 				withContext(Dispatchers.Main) {
-					val iter = State.items.listIterator()
-					while (iter.hasNext()) {
-						val index = iter.nextIndex()
-						val item = iter.next()
+					for (index in State.items.indices) {
+						val item = State.items[index]
 						if (item.id == id) {
 							val updatedItem =
 								item.copy(
@@ -203,24 +206,23 @@ object DriveManager {
 								)
 							State.items[index] = updatedItem
 							File(State.cacheDirectoryPath, id).delete()
-							return@withContext
-						}
-						val subIndex = item.subItems.indexOfFirst { it.id == id }
-						if (subIndex != -1) {
-							val subItem = item.subItems[subIndex]
-							val updatedSubItem =
-								subItem.copy(
-									id = newId,
-									name = name,
-									createdTime = createdTime,
-									modifiedTime = modifiedTime,
-								)
-							val updatedSubItems = item.subItems.toMutableList()
-							updatedSubItems[subIndex] = updatedSubItem
+						} else if (item.subItems.any { it.id == id }) {
+							val updatedSubItems =
+								item.subItems.map { subItem ->
+									if (subItem.id == id) {
+										subItem.copy(
+											id = newId,
+											name = name,
+											createdTime = createdTime,
+											modifiedTime = modifiedTime,
+										)
+									} else {
+										subItem
+									}
+								}
 							val updatedItem = item.copy(subItems = updatedSubItems)
 							State.items[index] = updatedItem
 							File(State.cacheDirectoryPath, item.id).delete()
-							return@withContext
 						}
 					}
 				}
@@ -231,21 +233,27 @@ object DriveManager {
 
 	suspend fun relink(id: String, newId: String) =
 		withContext(Dispatchers.IO) {
-			val chatItem = State.items.find { it.subItems.any { subItem -> subItem.id == id } }
-			if (chatItem != null) {
-				val subItem = chatItem.subItems.first { it.id == id }
-				val newSubItem = subItem.copy(id = newId)
-				RelinkManager.relink(listOf(DuplicateMatch(chatItem, subItem, newSubItem)))
+			val chatItems = State.items.filter { it.subItems.any { subItem -> subItem.id == id } }
+			if (chatItems.isNotEmpty()) {
+				val matches =
+					chatItems.map { chatItem ->
+						val subItem = chatItem.subItems.first { it.id == id }
+						val newSubItem = subItem.copy(id = newId)
+						DuplicateMatch(chatItem, subItem, newSubItem)
+					}
+				RelinkManager.relink(matches)
 				withContext(Dispatchers.Main) {
-					val index = State.items.indexOf(chatItem)
-					if (index != -1) {
-						val updatedSubItems =
-							chatItem.subItems.map {
-								if (it.id == id)
-									it.copy(id = newId, isNotFound = false, name = newId)
-								else it
-							}
-						State.items[index] = chatItem.copy(subItems = updatedSubItems)
+					for (index in State.items.indices) {
+						val chatItem = State.items[index]
+						if (chatItem.subItems.any { it.id == id }) {
+							val updatedSubItems =
+								chatItem.subItems.map {
+									if (it.id == id)
+										it.copy(id = newId, isNotFound = false, name = newId)
+									else it
+								}
+							State.items[index] = chatItem.copy(subItems = updatedSubItems)
+						}
 					}
 				}
 			}
