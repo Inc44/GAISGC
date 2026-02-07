@@ -48,18 +48,18 @@ object DriveService {
 		return credential
 	}
 
-	suspend fun getService(): Drive {
+	suspend fun getService(): Drive =
 		mutex.withLock {
-			return withContext(Dispatchers.IO) {
+			withContext(Dispatchers.IO) {
 				driveService
 					?: run {
 						val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
 						val credential = getCredentials(httpTransport)
 						val service =
 							Drive.Builder(httpTransport, JSON_FACTORY) { request ->
-									credential.initialize(request)
 									request.connectTimeout = Constants.TIMEOUT_MS
 									request.readTimeout = Constants.TIMEOUT_MS
+									credential.initialize(request)
 								}
 								.setApplicationName(Constants.APPLICATION_NAME)
 								.build()
@@ -68,9 +68,8 @@ object DriveService {
 					}
 			}
 		}
-	}
 
-	suspend fun logout() {
+	suspend fun logout() =
 		mutex.withLock {
 			withContext(Dispatchers.IO) {
 				try {
@@ -90,7 +89,6 @@ object DriveService {
 				}
 			}
 		}
-	}
 
 	suspend fun downloadFileBytes(service: Drive, id: String): ByteArray {
 		val baos = ByteArrayOutputStream()
@@ -98,10 +96,9 @@ object DriveService {
 		return baos.toByteArray()
 	}
 
-	suspend fun downloadLinkBytes(service: Drive, link: String): ByteArray {
-		return withContext(Dispatchers.IO) {
+	suspend fun downloadLinkBytes(service: Drive, link: String): ByteArray =
+		withContext(Dispatchers.IO) {
 			val resp = service.requestFactory.buildGetRequest(GenericUrl(link)).execute()
 			resp.content.use { it.readBytes() }
 		}
-	}
 }

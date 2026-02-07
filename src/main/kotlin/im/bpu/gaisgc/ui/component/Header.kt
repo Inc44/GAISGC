@@ -27,7 +27,7 @@ fun Header(
 	onToggleFilters: () -> Unit,
 	onTrash: () -> Unit,
 	onRelink: () -> Unit,
-) {
+) =
 	BoxWithConstraints(modifier = Modifier.padding(16.dp)) {
 		if (
 			(State.screen == Screen.UNLINKED || State.screen == Screen.RELINKER) &&
@@ -36,7 +36,6 @@ fun Header(
 			CompactHeader(onRefresh, onToggleFilters, onTrash, onRelink)
 		else StandardHeader(onRefresh, onToggleFilters, onTrash, onRelink)
 	}
-}
 
 @Composable
 fun CompactHeader(
@@ -44,17 +43,15 @@ fun CompactHeader(
 	onToggleFilters: () -> Unit,
 	onTrash: () -> Unit,
 	onRelink: () -> Unit,
-) {
-	Column {
-		ScreenSpecificPathInput(modifier = Modifier.fillMaxWidth())
-		Spacer(Modifier.height(8.dp))
-		Row(
-			modifier = Modifier.fillMaxWidth(),
-			horizontalArrangement = Arrangement.End,
-			verticalAlignment = Alignment.CenterVertically,
-		) {
-			ActionButtons(onRefresh, onToggleFilters, onTrash, onRelink, showFilter = true)
-		}
+) = Column {
+	ScreenSpecificPathInput(modifier = Modifier.fillMaxWidth())
+	Spacer(Modifier.height(8.dp))
+	Row(
+		modifier = Modifier.fillMaxWidth(),
+		horizontalArrangement = Arrangement.End,
+		verticalAlignment = Alignment.CenterVertically,
+	) {
+		ActionButtons(onRefresh, onToggleFilters, onTrash, onRelink, showFilter = true)
 	}
 }
 
@@ -64,7 +61,7 @@ fun StandardHeader(
 	onToggleFilters: () -> Unit,
 	onTrash: () -> Unit,
 	onRelink: () -> Unit,
-) {
+) =
 	Row(modifier = Modifier.heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
 		if (State.screen == Screen.UNLINKED || State.screen == Screen.RELINKER) {
 			ScreenSpecificPathInput(modifier = Modifier.weight(1f))
@@ -75,7 +72,6 @@ fun StandardHeader(
 			ActionButtons(onRefresh, onToggleFilters, onTrash, onRelink, showFilter = false)
 		}
 	}
-}
 
 @Composable
 fun ScreenSpecificPathInput(modifier: Modifier) =
@@ -98,7 +94,7 @@ fun ScreenSpecificPathInput(modifier: Modifier) =
 	}
 
 @Composable
-fun PathInput(value: String, onValueChange: (String) -> Unit, label: String, modifier: Modifier) {
+fun PathInput(value: String, onValueChange: (String) -> Unit, label: String, modifier: Modifier) =
 	OutlinedTextField(
 		value = value,
 		onValueChange = onValueChange,
@@ -106,14 +102,12 @@ fun PathInput(value: String, onValueChange: (String) -> Unit, label: String, mod
 		modifier = modifier,
 		singleLine = true,
 	)
-}
 
 @Composable
-fun Title(modifier: Modifier) {
+fun Title(modifier: Modifier) =
 	Text(
 		text = if (State.screen == Screen.SETTINGS) "Settings" else "GAISGC",
 		style = MaterialTheme.typography.headlineSmall,
 		fontWeight = FontWeight.Bold,
 		modifier = modifier,
 	)
-}
