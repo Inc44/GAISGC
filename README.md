@@ -86,8 +86,38 @@ ffmpeg -version
 - Create `GAISGC` project in [Google Cloud console](https://console.cloud.google.com)
 - Enable [Google Drive API](https://console.cloud.google.com/marketplace/product/google/drive.googleapis.com)
 - Create [OAuth 2.0 Client ID](https://console.cloud.google.com/auth/clients) (Application type* `Desktop App`)
-- Download `credentials.json` to `path/to/GAISGC`
+- Download `credentials.json`
 - Add [Test user](https://console.cloud.google.com/auth/audience)
+
+Move `credentials.json` to `path/to/GAISGC` or set environment variable:
+
+```powershell
+setx /M CREDENTIALS_JSON_PATH your_credentials_json_path
+```
+
+For Linux/macOS:
+
+```bash
+echo 'export CREDENTIALS_JSON_PATH="your_credentials_json_path"' >> ~/.bashrc # or ~/.zshrc
+```
+
+Or create a `.env` file or modify /etc/environment:
+
+```
+CREDENTIALS_JSON_PATH=your_credentials_json_path
+```
+
+Check by restarting the terminal and using:
+
+```cmd
+echo %CREDENTIALS_JSON_PATH%
+```
+
+For Linux/macOS:
+
+```bash
+echo $CREDENTIALS_JSON_PATH
+```
 
 ## 🐛 Bugs
 

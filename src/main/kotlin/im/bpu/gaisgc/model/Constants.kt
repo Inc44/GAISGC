@@ -17,6 +17,7 @@ object Constants {
 	const val RELINK_METHOD_PROPERTY = "relinkMethod"
 
 	const val CONFIG_FILE_PATH = "config.properties"
+	const val CREDENTIALS_JSON_PATH = "CREDENTIALS_JSON_PATH"
 	const val CREDENTIALS_FILE_PATH = "credentials.json"
 	const val DEFAULT_GAIS_PATH = "Google AI Studio"
 	const val DEFAULT_DUPLICATES_PATH = DEFAULT_GAIS_PATH

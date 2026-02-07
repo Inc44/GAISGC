@@ -32,9 +32,11 @@ object DriveService {
 	fun getJSONFactory() = JSON_FACTORY
 
 	private fun getCredentials(httpTransport: HttpTransport): Credential {
-		val file = File(Constants.CREDENTIALS_FILE_PATH)
+		val environmentCredentialsJsonPath = System.getenv(Constants.CREDENTIALS_JSON_PATH)
+		val path = if (!environmentCredentialsJsonPath.isNullOrEmpty()) environmentCredentialsJsonPath else Constants.CREDENTIALS_FILE_PATH
+		val file = File(path)
 		if (!file.exists())
-			throw Exception("Resource not found: ${Constants.CREDENTIALS_FILE_PATH}")
+			throw Exception("Resource not found: $path")
 		val clientSecrets =
 			GoogleClientSecrets.load(JSON_FACTORY, InputStreamReader(file.inputStream()))
 		val flow =
